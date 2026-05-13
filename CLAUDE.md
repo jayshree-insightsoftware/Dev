@@ -6,7 +6,7 @@ This file is read automatically by Claude Code on session start. Its contents sh
 
 This is a warehouse-first analytics project. Raw data lives in a SQL warehouse. AI-assisted exploration validates business concepts against the raw data. Validated concepts inform the design of a semantic mart layer in SQL. A thin application reads marts as a contract and renders them. Business logic lives in SQL, not in application code.
 
-Update this section in each new project with specifics: the warehouse account and schema, the source systems, the eventual dashboard purpose, the stakeholders.
+Update this section in each new project with specifics: the warehouse account and schema, the source systems, the eventual dashboard purpose, the stakeholders. If you just cloned this template and haven't filled this in yet, see `docs/PROJECT_KICKOFF.md` for the intake workflow.
 
 ## Branch strategy
 
@@ -24,7 +24,7 @@ Always commit to dev unless I explicitly say otherwise. Never push directly to m
 
 You and Claude Code should maintain `.md` files at the repo root and in `exploration/` to keep track of state across sessions. These supplement (don't replace) the in-conversation context.
 
-CLAUDE.md (this file) contains the methodology, conventions, and active gotchas. Refresh it when significant changes happen.
+CLAUDE.md (this file) contains the methodology, conventions, and accumulated project knowledge. Refresh it when significant changes happen. The session-end workflow in `docs/SESSION_WORKFLOW.md` describes how to keep this file up to date without manual rewriting every time.
 
 TODO.md tracks pending work. When I describe a multi-step task or you identify follow-up work, add it to TODO.md with status markers (`[ ]` pending, `[x]` complete, `[~]` in progress). Mark items complete as you finish them. Keep this honest -- if something gets deferred or scope-changed, update the entry.
 
@@ -34,9 +34,57 @@ DATA_INVENTORY.md is the map of the warehouse: tables in scope, what each appear
 
 Each concept being explored gets a file in `exploration/concepts/`. Each raw table being studied gets a file in `exploration/inventory/`. Each mart proposal gets a file in `exploration/proposals/`. Use the `_TEMPLATE.md` and `_TEMPLATE.sql` files in those folders as starting points.
 
-At the start of a session, read CLAUDE.md, TODO.md, and DATA_INVENTORY.md before doing significant work. At the end of substantial work, update the relevant .md files. When the user describes a new multi-step plan, write it to TODO.md before executing so we have a checkpoint to return to.
+At the start of a session, follow the session-start procedure in `docs/SESSION_WORKFLOW.md`. At the end of substantial work, follow the session-end procedure in the same file to update the relevant .md files.
 
-When investigating a bug or working through architectural decisions, append a brief note to CHANGES.md so future sessions understand the reasoning, not just the code.
+## Core definitions
+
+This section captures business definitions that have been agreed and validated during exploration. Once a definition lands here it should not be relitigated without explicit instruction. This prevents Claude from re-deriving agreed concepts from scratch at the start of each session.
+
+Format: bold term, one-sentence definition, source of truth field or table in parentheses if applicable.
+
+(Empty at template start. Populate during Phase 2 as definitions are agreed.)
+
+Example shape once populated:
+
+**Active customer**: A customer with at least one ARR-generating contract whose end date is on or after the as-of date. (source: `marts/account_status.is_active`)
+
+## Current headline numbers
+
+Quick sanity-check values that should approximately match across sessions. If Claude produces a number wildly different from what's here, something broke -- stop and investigate rather than proceeding.
+
+(Empty at template start. Populate after Phase 2 completes the first full metric pass.)
+
+Example shape once populated:
+
+| Metric | Value | As of | Notes |
+|--------|-------|-------|-------|
+| Active customer count | 2,847 | 2026-04-30 | matches finance team monthly review |
+| Total ARR | $548.4M | 2026-04-30 | matches PBI Executive dashboard |
+
+## Known data quality issues
+
+Document here any data quality problems discovered during exploration that would corrupt dashboard numbers if ignored. Format each as a one-liner with the count affected and the recommended handling. Review this section before presenting any numbers to stakeholders.
+
+(Empty at template start. Populate as issues are discovered.)
+
+Example shape once populated:
+
+- Ghost accounts: ~120 accounts have NULL customer_type but appear in active queries. Exclude via `customer_type IS NOT NULL` filter in active customer marts.
+- Stale TYPE field: the legacy account_type column is no longer maintained. Use the new account_category field for any account-type logic.
+
+## Authorized data scope
+
+List the warehouse schemas, databases, and tables that AI assistants are authorized to query during exploration. Default to read-only and scope tightly. Update this section as scope expands.
+
+Equally important: list tables that might LOOK relevant but are explicitly out of scope, and why. Negative scope (what not to touch) is as important as positive scope in a large warehouse with hundreds of tables. A table that "seems like it should answer this question but is wrong" will be reached for every session unless explicitly fenced off.
+
+In scope:
+
+(Populate during Phase 1 inventory)
+
+Explicitly out of scope:
+
+(Populate as you discover tables that look relevant but aren't -- include the reason why)
 
 ## The four phases
 
@@ -48,7 +96,7 @@ Phase 3 is mart design. Output: proposed mart SQL and rationale in `exploration/
 
 Phase 4 is app development. Output: thin app reading from marts as a contract.
 
-Refer to `docs/EXPLORATION_PLAYBOOK.md` for the detailed workflow within each phase.
+Refer to `docs/EXPLORATION_PLAYBOOK.md` for the detailed workflow within each phase. Refer to `docs/SESSION_WORKFLOW.md` for the mechanics of running individual sessions.
 
 ## Working style preferences
 
@@ -73,6 +121,8 @@ Set up exploration questions to be small and targeted. "Find the table that repr
 Every concept must be validated against a known reference before it's considered understood. The reference can be a PBI report, a finance team number, a spreadsheet, or another trusted source. Without validation, the concept is a hypothesis, not a finding.
 
 Edge cases discovered during exploration are gold. Capture them in the concept doc. "Oh, we need to exclude test accounts" is the kind of thing that takes 10 minutes to discover and saves 10 hours when it bites you later.
+
+Build an independent validation rather than trusting vendor-provided confidence scores. When a source system or third-party data provider gives you a "trust" or "confidence" field, treat it as one input among many, not as the answer. Most projects discover at some point that vendor confidence and actual usability are not the same thing.
 
 ## Mart design principles
 
@@ -104,9 +154,7 @@ Tests must pass before every commit. Once the app exists, the test command goes 
 
 Commit messages should be descriptive and reference what changed and why, not just what file was touched. Multi-line commit messages are encouraged when the change has nontrivial reasoning.
 
-## Authorized data scope
-
-List the warehouse schemas, databases, and tables that AI assistants are authorized to query during exploration. Default to read-only and scope tightly. Update this section as scope expands.
+SQL scripts that are promoted from exploration conversations into the repo need a standard header block. See `docs/SESSION_WORKFLOW.md` for the SQL promotion workflow and header template.
 
 ## Brand and styling
 

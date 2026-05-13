@@ -20,9 +20,13 @@ Read `CLAUDE.md` to understand the conventions. This is also what Claude Code re
 
 Copy `CLAUDE.md` contents into your Claude project instructions on claude.ai so the web interface uses the same rules.
 
-Connect Claude (web and Code) to the warehouse via MCP. Start with read-only access scoped to the schemas you want explored.
+Set up warehouse access via MCP. See `docs/MCP_SETUP.md` for step-by-step instructions for Snowflake and other warehouses.
 
-Begin with Phase 1 exploration. See `docs/EXPLORATION_PLAYBOOK.md` for the step-by-step workflow.
+Run the project kickoff intake before starting any exploration. See `docs/PROJECT_KICKOFF.md` for the structured intake questions Claude should ask before doing real work. The kickoff populates CLAUDE.md and DATA_INVENTORY.md with project-specific context.
+
+Run individual sessions following `docs/SESSION_WORKFLOW.md`. Every session starts with the orientation prompt and ends with the update prompt. This keeps the file-based project memory accurate across sessions.
+
+Begin Phase 1 exploration following `docs/EXPLORATION_PLAYBOOK.md`.
 
 ## The four phases of a project
 
