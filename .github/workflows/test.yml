@@ -1,0 +1,39 @@
+name: Test (dev branch)
+
+# Runs tests on every push to dev and on PRs targeting main.
+# Never deploys -- that's main_<app-name>.yml's job.
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      # Customize the test commands based on the eventual stack.
+      # Replace this section once the app exists.
+      - name: Install backend dependencies
+        run: cd backend && npm install
+        if: ${{ hashFiles('backend/package.json') != '' }}
+
+      - name: Run backend tests
+        run: cd backend && npx jest --runInBand --forceExit
+        if: ${{ hashFiles('backend/package.json') != '' }}
+
+      - name: Install frontend dependencies
+        run: cd frontend && npm install
+        if: ${{ hashFiles('frontend/package.json') != '' }}
+
+      - name: Run frontend tests
+        run: cd frontend && npm test -- --run
+        if: ${{ hashFiles('frontend/package.json') != '' }}

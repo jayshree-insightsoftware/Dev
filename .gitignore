@@ -1,0 +1,51 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+
+# Build outputs
+dist/
+build/
+out/
+backend/public/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# SQLite snapshots (these are generated, not source)
+*.db
+*.db-wal
+*.db-shm
+data/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code working files
+.claude/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary exploration outputs (kept private)
+exploration/scratch/
+*.scratch.sql
+*.scratch.md

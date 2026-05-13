@@ -1,0 +1,76 @@
+name: Deploy to Azure App Service
+
+# Triggered on push to main. Builds, deploys to App Service, then
+# auto-triggers the snapshot workflow so fresh data follows fresh code.
+#
+# Customize:
+# - app-name (your App Service name)
+# - secret names for Azure Service Principal (created when you set up Azure)
+# - any frontend build env vars
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: write  # required to dispatch snapshot.yml at the end
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Build frontend
+        env:
+          # Add any VITE_* or other build-time env vars as GitHub Actions
+          # repo variables, then reference them here.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Copy frontend build to backend/public
+        run: |
+          mkdir -p backend/public
+          cp -r frontend/dist/* backend/public/
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm install --omit=dev
+
+      - name: Zip backend for deployment
+        run: |
+          cd backend
+          zip -r ../deploy.zip .
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'YOUR-APP-NAME-HERE'
+          slot-name: 'Production'
+          package: ./deploy.zip
+
+      # Trigger the snapshot workflow so the app has fresh data right after
+      # deploy. Uses the auto-provided GITHUB_TOKEN.
+      - name: Trigger snapshot workflow
+        run: gh workflow run snapshot.yml --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

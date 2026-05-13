@@ -1,0 +1,49 @@
+name: Snapshot Warehouse to Blob Storage
+
+# Triggered on cron (every N hours) and on workflow_dispatch (manual or
+# auto-triggered from deploy.yml).
+#
+# Runs the snapshot job against the warehouse and uploads the resulting
+# SQLite file to Azure Blob Storage. The App Service downloads it on
+# startup and via periodic sync.
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # every 4 hours; adjust per project needs
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30  # adjust based on actual snapshot duration
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install backend dependencies
+        run: cd backend && npm install
+
+      - name: Run snapshot job
+        env:
+          NODE_ENV: production
+          # Warehouse credentials -- adjust to your warehouse
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USERNAME: ${{ secrets.SNOWFLAKE_USERNAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+        run: cd backend && node jobs/snapshot.js
+
+      - name: Upload snapshot to Azure Blob Storage
+        env:
+          AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+        run: |
+          cd backend
+          node -e "require('./services/blobSync').uploadSnapshot().then(r => console.log('OK', r)).catch(e => { console.error(e); process.exit(1); })"
