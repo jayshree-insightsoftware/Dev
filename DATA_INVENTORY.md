@@ -1,37 +1,95 @@
-# Data Inventory
-
-The map of the warehouse. Built during Phase 1. Updated whenever new sources come into scope.
+# Data inventory
 
 ## Connection details
 
-Warehouse type: (e.g., Snowflake)
-Account / host: (e.g., xp97223-edw)
-Authorized schemas: (e.g., CONSUMER.FINANCE)
-MCP server URL: (the MCP endpoint AI assistants use to query)
-Access mode: read-only (this should be the default; flag any exceptions)
+- Warehouse: Snowflake
+- Account: xp97223-edw
+- Database: INBOUND_RAW
+- Schema: SALESFORCE
+- Access method: Claude MCP (Snowflake connector)
+- Authorized scope: All tables in INBOUND_RAW.SALESFORCE (1,654 tables)
 
-## Source systems
+## Tables profiled
 
-Where does the data in scope originate? Salesforce, NetSuite, internal applications, third-party feeds, etc. Capture enough context that someone unfamiliar with the warehouse can orient themselves.
+### ACCOUNT
 
-## In-scope tables
+- Row count: 614,117 (392,097 active, 222,020 deleted)
+- Grain: One row per Salesforce Account record
+- Key fields: ID, NAME, TYPE, CHANNEL_C, BILLING_COUNTRY, BILLING_STATE, BILLING_CITY, PHONE, WEBSITE, INDUSTRY, ANNUAL_REVENUE, NUMBER_OF_EMPLOYEES, PARENT_ID, DUNSNUMBER_C, DNBCONNECT_D_B_CONNECT_COMPANY_PROFILE_C, OWNER_ID, IS_DELETED, RECORD_TYPE_ID
+- Last profiled: 2026-05-18
 
-For each table the project will reference, capture:
+Completeness (active accounts only, 392,097):
 
-| Table | Appears to represent | Grain (one row per...) | Approx row count | Last updated | Notes |
-|-------|---------------------|------------------------|------------------|--------------|-------|
-| (table_name) | (one-line hypothesis) | (account, account-month, etc.) | (rough) | (timestamp pattern) | (anything odd) |
+| Field | Null count | Null % |
+|-------|-----------|--------|
+| Phone | 77,895 | 20% |
+| Billing state | 39,575 | 10% |
+| Website | 25,933 | 7% |
+| Number of employees | 25,931 | 7% |
+| Annual revenue | 21,319 | 5% |
+| Billing city | 13,244 | 3% |
+| Industry | 8,492 | 2% |
+| Billing country | 7,797 | 2% |
 
-Detailed notes on each table live in `exploration/inventory/<table_name>.md`. This summary table is just the index.
+Parent ID is null for 76% of accounts which is normal -- most accounts are standalone, not subsidiaries.
 
-## Tables explicitly out of scope
+Type distribution (active accounts):
 
-If certain schemas or tables are explicitly NOT to be queried during exploration, document them here with the reason.
+| Type | Count |
+|------|-------|
+| Prospect | 329,462 |
+| Customer | 30,457 |
+| Former Customer | 20,231 |
+| Former Partner | 4,866 |
+| Customer (Expired Entitlements) | 4,711 |
+| Partner | 2,206 |
+| Distributor | 160 |
 
-## Refresh patterns
+Channel distribution (active accounts):
 
-Document how often each source updates and what the typical lag is. This matters for understanding when "stale" data is actually a problem versus expected.
+| Channel | Count | % |
+|---------|-------|---|
+| Direct | 347,394 | 88.6% |
+| Indirect | 44,705 | 11.4% |
 
-## Known data quirks
+### CONTRACT
 
-Catch-all for things that don't fit elsewhere but future you should know: deprecated columns that are still populated, columns with misleading names, tables that look related but aren't, etc.
+- Row count: 265,207 (263,134 active, 2,073 deleted)
+- Grain: One row per Salesforce Contract record
+- Key fields: ID, ACCOUNT_ID, BILL_TO_ACCOUNT_C, BILL_TO_C, PARTNER_ACCOUNT_C, CONTRACT_STATUS_C, STATUS, START_DATE, END_DATE, NET_ARR_C, CONTRACT_ARR_C, ACCOUNT_TYPE_C
+- Last profiled: 2026-05-18
+
+Note: Use CONTRACT_STATUS_C (custom field with values Active/Expired/Cancelled/Inactive) for contract status. The standard STATUS field stays "Activated" and does not update when contracts expire.
+
+Contract status distribution:
+
+| CONTRACT_STATUS_C | Count |
+|-------------------|-------|
+| Expired | 210,537 |
+| Active | 35,712 |
+| Cancelled | 14,658 |
+| Inactive | 2,260 |
+
+### DNBCONNECT_D_B_CONNECT_COMPANY_PROFILE_C
+
+- Grain: One row per D&B company profile linked to an Account
+- Key fields: ID, DNBCONNECT_DUNSNUMBER_C, DU_DUNS_C (Domestic Ultimate), GU_DUNS_C (Global Ultimate), HQ_DUNS_C (Headquarters), PARENT_DUNS_C, DU_PRIM_NAME_C, GU_PRIM_NAME_C, HQ_PRIM_NAME_C, PARENT_PRIM_NAME_C, HIERARCHY_LEVEL_C, IS_STANDALONE_C
+- Join: Account.DNBCONNECT_D_B_CONNECT_COMPANY_PROFILE_C = D&B_Profile.ID
+- Last profiled: 2026-05-18
+
+## Tables not yet profiled
+
+The following high-value tables are queued for Phase 1 profiling:
+
+- CONTACT (3.4M rows)
+- OPPORTUNITY (581K rows)
+- OPPORTUNITY_LINE_ITEM (2.2M rows)
+- LEAD (1.8M rows)
+- CASE (3.8M rows)
+- TASK (28.6M rows)
+- CAMPAIGN (25K rows)
+- PRODUCT_2 (12K rows)
+
+## Access issues
+
+- BUYERGROUPMEMBER: Object exists in Salesforce (confirmed via Object Manager) but cannot be queried from Workbench or Developer Console due to insufficient privileges. Not replicated to Snowflake. Mike Hooker has access and can provide data as needed.
