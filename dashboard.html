@@ -1,0 +1,1395 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTM Dashboard &mdash; Moments That Matter | Angles Professional</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --isw-blue:#003b70; --isw-teal:#00a5b5; --isw-orange:#f26522;
+    --onboarding:#0d6efd; --adoption:#198754; --retention:#fd7e14; --offboarding:#dc3545;
+  }
+  body{background:#f4f6f9;font-family:'Segoe UI',sans-serif;}
+  .navbar{background:var(--isw-blue)!important;}
+  .navbar-brand{color:#fff!important;font-weight:700;letter-spacing:.5px;}
+  .stage-badge-onboarding{background:var(--onboarding);color:#fff;}
+  .stage-badge-adoption{background:var(--adoption);color:#fff;}
+  .stage-badge-retention{background:var(--retention);color:#fff;}
+  .stage-badge-offboarding{background:var(--offboarding);color:#fff;}
+  .kpi-card{border-left:5px solid var(--isw-teal);border-radius:8px;}
+  .kpi-card .kpi-number{font-size:2rem;font-weight:700;color:var(--isw-blue);}
+  .scenario-card{border-radius:10px;transition:transform .15s,box-shadow .15s;}
+  .scenario-card:hover{transform:translateY(-3px);box-shadow:0 6px 20px rgba(0,0,0,.12);}
+  .count-badge{font-size:1.4rem;font-weight:800;min-width:64px;text-align:center;border-radius:8px;padding:6px 10px;}
+  .count-zero{background:#e9ecef;color:#6c757d;}
+  .count-low{background:#d1e7dd;color:#0a3622;}
+  .count-med{background:#fff3cd;color:#664d03;}
+  .count-high{background:#f8d7da;color:#58151c;}
+  .priority-high{border-top:3px solid #dc3545;}
+  .priority-medium{border-top:3px solid #fd7e14;}
+  .stage-header{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:2px 8px;border-radius:4px;display:inline-block;}
+  .nav-pills .nav-link.active{background-color:var(--isw-blue);}
+  .section-title{color:var(--isw-blue);border-bottom:2px solid var(--isw-teal);padding-bottom:6px;}
+  .table thead th{background:var(--isw-blue);color:#fff;font-size:.8rem;white-space:nowrap;}
+  .health-badge{font-size:.75rem;padding:3px 8px;border-radius:10px;}
+  .health-login-only{background:#f8d7da;color:#58151c;}
+  .health-low{background:#fff3cd;color:#664d03;}
+  .health-healthy{background:#d1e7dd;color:#0a3622;}
+  .chart-container{position:relative;height:280px;}
+  footer{background:var(--isw-blue);color:rgba(255,255,255,.6);font-size:.8rem;}
+  .slicer-panel{background:#fff;border:1px solid #dee2e6;border-radius:10px;padding:12px 16px;}
+  .slicer-panel label{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--isw-blue);margin-bottom:2px;display:block;}
+  .slicer-panel .form-control,.slicer-panel .form-select{font-size:.8rem;border-color:#ced4da;padding:.25rem .5rem;height:32px;}
+  .slicer-col{flex:1 1 0;min-width:120px;}
+  .slicer-active{border-color:var(--isw-teal)!important;box-shadow:0 0 0 2px rgba(0,165,181,.2)!important;}
+  .slicer-badge{font-size:.7rem;padding:2px 7px;border-radius:10px;background:var(--isw-teal);color:#fff;}
+  .scenario-tile{border-radius:8px;padding:8px 12px;font-size:.78rem;border-left:4px solid;}
+  .scenario-tile-s16{border-color:var(--offboarding);background:#fff5f5;}
+  .scenario-tile-s12{border-color:var(--retention);background:#fff8f0;}
+  .scenario-tile-none{border-color:#dee2e6;background:#f8f9fa;color:#6c757d;}
+  .scenario-card.filtered-out{opacity:.18;pointer-events:none;transform:none!important;box-shadow:none!important;}
+  .scenario-card.filtered-in{box-shadow:0 0 0 3px var(--isw-teal),0 4px 16px rgba(0,165,181,.28)!important;transform:translateY(-2px);}
+  .filter-bar{background:var(--isw-blue);color:#fff;border-radius:8px;padding:10px 16px;font-size:.85rem;}
+  .filter-bar code{color:rgba(255,255,255,.7);}
+  .active-scen-count{font-weight:700;color:var(--isw-teal);font-size:.9rem;}
+  .scen-tooltip{position:fixed;z-index:99999;width:340px;max-width:90vw;background:#fff;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.18),0 2px 8px rgba(0,0,0,.10);border-top:4px solid var(--isw-teal);padding:14px 16px;font-size:.8rem;line-height:1.5;pointer-events:none;display:none;}
+  .scen-tooltip .tt-header{font-weight:700;font-size:.85rem;color:var(--isw-blue);margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #e9ecef;}
+  .scen-tooltip .tt-row{display:flex;gap:8px;margin-bottom:7px;}
+  .scen-tooltip .tt-icon{flex-shrink:0;width:20px;text-align:center;}
+  .scen-tooltip .tt-label{font-weight:600;color:var(--isw-blue);min-width:120px;}
+  .scen-tooltip .tt-val{color:#444;}
+  .scen-tooltip .tt-stakeholders{margin-top:9px;padding-top:7px;border-top:1px solid #e9ecef;font-size:.75rem;color:#6c757d;}
+</style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark mb-4">
+  <div class="container-fluid">
+    <span class="navbar-brand fs-5">&#9680; MTM Dashboard &mdash; Moments That Matter</span>
+    <span class="text-white-50 small">Angles Professional &nbsp;|&nbsp; consumer_beta.telemetry_overview &nbsp;|&nbsp; 2026-05-19</span>
+  </div>
+</nav>
+
+<div class="container-fluid px-4">
+
+  <!-- SLICER PANEL -->
+  <div class="slicer-panel mb-3 shadow-sm">
+    <div class="d-flex align-items-center mb-3">
+      <span class="fw-bold me-2" style="color:var(--isw-blue)">&#9881; Account Slicer</span>
+      <span class="slicer-badge me-2">Salesforce</span>
+      <span class="text-muted small">&mdash; select an account to view its scenario activity</span>
+      <button id="clearSlicers" class="btn btn-sm btn-outline-secondary ms-auto">&#10005; Clear</button>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-end">
+      <div class="slicer-col" style="flex:2 1 160px">
+        <label for="filterAccountName">Account Name</label>
+        <select id="filterAccountName" class="form-select">
+          <option value="">&mdash; All Accounts &mdash;</option>
+        </select>
+      </div>
+      <div class="slicer-col" style="flex:1.5 1 140px">
+        <label for="filterSfdcId">SF Account ID</label>
+        <input type="text" id="filterSfdcId" class="form-control" placeholder="001f400000&hellip;" autocomplete="off">
+      </div>
+      <div class="slicer-col">
+        <label for="filterAccountType">Type</label>
+        <select id="filterAccountType" class="form-select">
+          <option value="">All Types</option>
+          <option>Customer</option>
+          <option>Prospect</option>
+          <option>Partner</option>
+          <option>Former Customer</option>
+          <option>Customer (Expired Entitlements)</option>
+        </select>
+      </div>
+      <div class="slicer-col">
+        <label for="filterChannel">Channel</label>
+        <select id="filterChannel" class="form-select">
+          <option value="">All Channels</option>
+        </select>
+      </div>
+      <div class="slicer-col" style="flex:1.5 1 140px">
+        <label for="filterProductLine">Product Line</label>
+        <select id="filterProductLine" class="form-select">
+          <option value="">All Product Lines</option>
+        </select>
+      </div>
+      <div class="slicer-col">
+        <label for="filterCsmName">CSM Name</label>
+        <select id="filterCsmName" class="form-select">
+          <option value="">All CSMs</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVE FILTER STATUS BAR -->
+  <div id="filterStatusBar" class="filter-bar mb-3 d-none d-flex align-items-center flex-wrap gap-2">
+    <span id="filterStatusText" class="me-auto"></span>
+    <span id="filterScenarioCount" class="active-scen-count"></span>
+    <button id="filterStatusClear" class="btn btn-sm btn-light py-0 ms-2">&#10005; Clear</button>
+  </div>
+
+  <!-- ACCOUNT-LEVEL SCENARIO VIEW (shown when account selected) -->
+  <div id="accountView" class="card shadow-sm mb-4 border-0" style="display:none!important">
+    <div class="card-header d-flex align-items-center flex-wrap gap-2" style="background:var(--isw-blue);color:#fff">
+      <span class="fw-bold me-2">&#128065; Account Scenario View &mdash;</span>
+      <span id="accountViewName" class="fw-bold"></span>
+      <span id="accountViewType" class="badge bg-light text-dark ms-1"></span>
+      <span id="accountViewSfdc" class="small opacity-75"></span>
+      <span id="accountViewChannel" class="small opacity-75"></span>
+      <span id="accountViewProduct" class="small opacity-75"></span>
+      <span id="accountViewCsm" class="ms-auto small opacity-75"></span>
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">Scenarios where this account currently has an active alert:</p>
+      <div id="accountScenarioTiles" class="row g-2"></div>
+      <div id="accountNoMatch" class="text-muted small mt-2" style="display:none">No scenario alerts found for this account in the loaded datasets.</div>
+    </div>
+  </div>
+
+  <!-- KPI ROW -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card kpi-card h-100 p-3 shadow-sm">
+        <div class="text-muted small mb-1">Total Accounts in Alert</div>
+        <div class="kpi-number" id="kpiTotal">17,477</div>
+        <div class="text-muted small" id="kpiTotalSub">across 16 scenarios</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 p-3 shadow-sm" style="border-left:5px solid var(--onboarding)">
+        <div class="text-muted small mb-1">Onboarding Alerts (S1-S4)</div>
+        <div class="kpi-number" id="kpiOnboarding" style="color:var(--onboarding)">11,809</div>
+        <div class="text-muted small" id="kpiOnboardingSub">License never used: 5,861 &bull; Upload stall: 5,844</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 p-3 shadow-sm" style="border-left:5px solid var(--adoption)">
+        <div class="text-muted small mb-1">Adoption Alerts (S5-S9)</div>
+        <div class="kpi-number" id="kpiAdoption" style="color:var(--adoption)">5,375</div>
+        <div class="text-muted small" id="kpiAdoptionSub">Feature gap: 5,303 &bull; IL never entered: 44</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100 p-3 shadow-sm" style="border-left:5px solid var(--retention)">
+        <div class="text-muted small mb-1">Retention &amp; Offboarding (S10-S16)</div>
+        <div class="kpi-number" id="kpiRetention" style="color:var(--retention)">293</div>
+        <div class="text-muted small" id="kpiRetentionSub">Dormant seats: 82 &bull; Cancellations: 106</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-8">
+      <div class="card shadow-sm p-3">
+        <h6 class="section-title mb-3">Accounts Per Scenario</h6>
+        <div class="chart-container"><canvas id="scenarioChart"></canvas></div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card shadow-sm p-3">
+        <h6 class="section-title mb-3" id="lossChartTitle">S16 &mdash; Closed Lost Reasons (106)</h6>
+        <div class="chart-container"><canvas id="lossChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO CARDS -->
+  <h5 class="section-title mb-3">All 16 MTM Scenarios</h5>
+  <ul class="nav nav-pills mb-3">
+    <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-all">All</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-onboarding">Onboarding</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-adoption">Adoption</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-retention">Retention</button></li>
+    <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-offboarding">Offboarding</button></li>
+  </ul>
+  <div class="tab-content mb-5">
+    <div class="tab-pane fade show active" id="tab-all"><div class="row g-3" id="all-cards"></div></div>
+    <div class="tab-pane fade" id="tab-onboarding"><div class="row g-3" id="onboarding-cards"></div></div>
+    <div class="tab-pane fade" id="tab-adoption"><div class="row g-3" id="adoption-cards"></div></div>
+    <div class="tab-pane fade" id="tab-retention"><div class="row g-3" id="retention-cards"></div></div>
+    <div class="tab-pane fade" id="tab-offboarding"><div class="row g-3" id="offboarding-cards"></div></div>
+  </div>
+
+  <!-- S12 DETAIL -->
+  <div class="mt-2 mb-4">
+    <h5 class="section-title mb-2">S12 &mdash; Login-Without-IL Health Check &nbsp;<span class="badge bg-secondary">70 accounts</span></h5>
+    <p class="text-muted small">Active logins in last 14 days but zero Intelligence Layer events &mdash; customer using RC as a basic viewer only. <strong>Stage: Retention | Priority: Medium</strong></p>
+    <div class="card shadow-sm p-3">
+      <table id="s12Table" class="table table-sm table-hover w-100">
+        <thead><tr><th>Account ID</th><th>Login Days (14d)</th><th>IL Events (14d)</th><th>Health Signal</th><th>Last Login</th></tr></thead>
+        <tbody id="s12Body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- S16 DETAIL -->
+  <div class="mt-2 mb-5">
+    <h5 class="section-title mb-2">S16 &mdash; Cancellation / IL Adoption Audit &nbsp;<span class="badge bg-secondary" id="s16Count">106 accounts</span></h5>
+    <p class="text-muted small">Closed Lost opportunities &mdash; IL adoption status, RC upload status, and license usage at churn. <strong>Stage: Offboarding | Priority: High</strong></p>
+    <div class="card shadow-sm p-3">
+      <table id="s16Table" class="table table-sm table-hover w-100">
+        <thead><tr>
+          <th>Account Name</th><th>SFDC Account ID</th><th>Type</th><th>Closed Date</th><th>Loss Reason</th><th>Sub-Reason</th>
+          <th>Used IL</th><th>Saved Rule</th><th>Uploaded Report</th><th>Users at Churn</th>
+        </tr></thead>
+        <tbody id="s16Body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<footer class="text-center py-3 mt-4">
+  MTM Dashboard &mdash; consumer_beta.telemetry_overview &nbsp;|&nbsp; Angles Professional &nbsp;|&nbsp; insightsoftware
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script>
+// SCENARIO DEFINITIONS
+const SCENARIOS = [
+  {id:"S1", name:"CSM Assignment & Sales Handoff",        count:0,    stage:"onboarding",  priority:"high",   trigger:"Contract signed >1 day, no CSM assigned",
+   tip:{what:"Contract signed 1+ days ago but no CSM has been assigned in Salesforce",why:"The first 90 days define long-term adoption; delayed handoff is the #1 predictor of onboarding failure",action:"Assign CSM within 24 hrs; AE sends a warm intro email before the first call",stakeholders:"CSM Lead, AE, RevOps"}},
+  {id:"S2", name:"License Key Assigned, Never Used",      count:5861, stage:"onboarding",  priority:"high",   trigger:"License registered but never validated (48+ hrs)",
+   tip:{what:"License key provisioned but product never launched after 48+ hours",why:"Customers who do not log in during week 1 rarely reach full adoption - a silent failure point",action:"Contact IT admin or named user; send Getting Started guide and confirm firewall or proxy settings",stakeholders:"CSM, IT/Provisioning"}},
+  {id:"S3", name:"Double-Homepage Confusion (ISW&rarr;RC)",    count:104,  stage:"onboarding",  priority:"high",   trigger:"Logins recorded but never reached RC homepage",
+   tip:{what:"User has authenticated but has never navigated to the Report Center homepage",why:"Navigation confusion between ISW and RC portals causes early abandonment; strongly correlated with early churn",action:"Send a direct deep-link to the RC homepage; offer a 15-minute orientation call",stakeholders:"CSM, Product UX, Onboarding"}},
+  {id:"S4", name:"First Report Upload Stall",             count:5844, stage:"onboarding",  priority:"high",   trigger:">3 days since first use, no upload page reached",
+   tip:{what:"Customer has been active 3+ days but has not yet reached the Report Upload page",why:"Reaching the upload page is the #1 activation milestone; accounts that never upload churn at 3x the rate",action:"Send the upload walkthrough video or offer a screen-share to complete the first upload together",stakeholders:"CSM, Product, Onboarding"}},
+  {id:"S5", name:"Feature Discovery Gap (30-day mark)",   count:5303, stage:"adoption",    priority:"medium", trigger:"30+ active days, zero secondary RC feature events",
+   tip:{what:"Active 30+ days but only using core report view - zero Lineos, Schedule, or View All events recorded",why:"Single-feature users renew at 40% lower rates; feature breadth is a leading health indicator",action:"Run a feature discovery session; share the enablement deck highlighting 3 quick wins",stakeholders:"CSM, Product Marketing"}},
+  {id:"S6", name:"Schedule Creation Drop-Off",            count:22,   stage:"adoption",    priority:"high",   trigger:"Visited schedule page, never completed (5+ days)",
+   tip:{what:"User visited the Schedule Creation page but never completed a schedule - 5+ days have passed",why:"92% of users who start scheduling never finish; completers show 2x engagement and higher renewal rates",action:"Trigger an in-app guide or offer a 10-minute scheduling demo; verify email delivery is not blocking completion",stakeholders:"CSM, Product UX"}},
+  {id:"S7", name:"Intelligence Layer Never Entered",      count:44,   stage:"adoption",    priority:"high",   trigger:"RC active 7+ days, zero IL events ever recorded",
+   tip:{what:"Account has used Report Center 7+ days but has zero Intelligence Layer events of any kind",why:"IL is the key premium differentiator; 90% of RC accounts have not discovered it, creating retention and upsell risk",action:"Send the IL intro video; schedule a 20-minute IL demo tailored to their specific use case",stakeholders:"CSM, CS Leadership, Product"}},
+  {id:"S8", name:"Rule Creation Funnel Failure",          count:6,    stage:"adoption",    priority:"high",   trigger:"Visited IL homepage, never saved a rule",
+   tip:{what:"User has entered the Intelligence Layer but has never successfully saved a rule",why:"Drop-off most likely at the subscriber or email step (not fully instrumented); represents wasted IL intent",action:"Walk through rule creation on a live screen-share; verify subscriber email addresses are not bouncing",stakeholders:"CSM, Product"}},
+  {id:"S9", name:"First Rule Fired &mdash; Value Realized &#11088;",  count:0,    stage:"adoption",    priority:"high",   trigger:"Rule saved, no Results tab view in 7+ days",
+   tip:{what:"A rule has been saved and likely fired, but the Results tab has not been viewed in 7+ days",why:"Viewing Results is the definitive aha moment and value realization proxy; these accounts renew at 85%+",action:"Proactively celebrate the milestone; guide the user directly to the Results tab to view their first alerts",stakeholders:"CSM, CS Leadership, Product"}},
+  {id:"S10",name:"License Seat Utilization Drop",         count:13,   stage:"retention",   priority:"high",   trigger:"Active users <50% of prior 30d (5+ seat accounts)",
+   tip:{what:"Active user count dropped below 50% of the prior month for accounts with 5+ licensed seats",why:"Silent abandonment is 3x more likely to convert to churn than active complaints; early detection is critical",action:"Investigate root cause - departure, project end, or product issue; offer targeted team re-training",stakeholders:"CSM, CS Leadership, RevOps"}},
+  {id:"S11",name:"Dormant Licensed Seats &mdash; Renewal Risk", count:82,   stage:"retention",   priority:"high",   trigger:">30% dormant seats, renewal within 120 days",
+   tip:{what:"30%+ of licensed seats have zero activity in 30+ days, with renewal arriving within 120 days",why:"Dormant seats are the #1 ARR negotiation lever; customers cite them to justify seat downgrades at renewal",action:"Send a seat utilization report to the economic buyer; offer free re-onboarding for dormant users before renewal",stakeholders:"CSM, RevOps, AE"}},
+  {id:"S12",name:"Login-Without-IL Health Check",         count:70,   stage:"retention",   priority:"medium", trigger:"Active logins 14d, zero IL events same window",
+   tip:{what:"Active logins in the past 14 days but zero Intelligence Layer interactions in the same window",why:"Customer is using RC as a basic report viewer only - not realizing the premium IL value they are paying for",action:"Flag in Totango as IL adoption risk; schedule an IL enablement session within 2 weeks",stakeholders:"CSM, CS Leadership, Totango"}},
+  {id:"S13",name:"IL Engagement Drop &#11088;",                 count:0,    stage:"retention",   priority:"high",   trigger:"No new rules 60+ days OR results not viewed 14+ days",
+   tip:{what:"No new IL rules created in 60+ days OR the Results tab has not been viewed in 14+ days",why:"IL disengagement is the strongest churn predictor, with an average 4-month lead time before contract loss",action:"Trigger a QBR or executive check-in; review existing rules and identify new automation opportunities",stakeholders:"CSM, CS Leadership, Product"}},
+  {id:"S14",name:"Pre-Renewal Health Scorecard",          count:22,   stage:"retention",   priority:"high",   trigger:"Renewal within 120 days &mdash; 5-signal health scorecard",
+   tip:{what:"Renewal in 120 days - evaluates IL usage, upload frequency, seat utilization, engagement trend, and support volume",why:"At 120 days there is still runway to fix RED signals; waiting until 30 days out is too late to change outcomes",action:"Review the scorecard together in a QBR; immediately create an action plan for any RED signals",stakeholders:"CSM, CS Leadership, RevOps, AE"}},
+  {id:"S15",name:"Lapsed Maintenance &mdash; Still Using",      count:0,    stage:"offboarding", priority:"high",   trigger:"ONMAINTENANCE=FALSE but license still validating daily",
+   tip:{what:"Licensing system shows ONMAINTENANCE=FALSE (contract lapsed) but the product license is still validating daily",why:"Active usage without a valid maintenance contract creates legal and compliance exposure for both parties",action:"RevOps to verify contract status immediately; AE to initiate a reinstatement or renewal conversation",stakeholders:"CSM, RevOps, AE, Legal/Compliance"}},
+  {id:"S16",name:"Cancellation &mdash; IL Adoption Audit",      count:106,  stage:"offboarding", priority:"high",   trigger:"Opportunity Closed Lost &mdash; capture IL/RC/license state",
+   tip:{what:"Opportunity marked Closed Lost - audit captures IL adoption, RC upload status, and license usage at the time of churn",why:"Win/loss analysis: understanding whether low IL adoption caused churn informs product roadmap and CS intervention strategy",action:"Feed into the win/loss review process; flag zero-IL accounts to Product as feature awareness failures",stakeholders:"CSM, Product, CS Leadership, RevOps"}},
+];
+
+const stageColor = {onboarding:"#0d6efd",adoption:"#198754",retention:"#fd7e14",offboarding:"#dc3545"};
+function countCls(n){return n===0?"count-zero":n<30?"count-low":n<500?"count-med":"count-high";}
+
+function makeCard(s){
+  return `<div class="col-12 col-sm-6 col-xl-3">
+    <div class="card scenario-card shadow-sm p-3 h-100 priority-${s.priority}" data-scenario-id="${s.id}">
+      <div class="d-flex justify-content-between align-items-start mb-2">
+        <div>
+          <span class="stage-header stage-badge-${s.stage}">${s.stage}</span>
+          <span class="badge ${s.priority==='high'?'bg-danger':'bg-warning text-dark'} ms-1">${s.priority}</span>
+        </div>
+        <span class="count-badge ${countCls(s.count)}">${s.count.toLocaleString()}</span>
+      </div>
+      <div class="fw-bold small">${s.id} &mdash; ${s.name}</div>
+      <div class="text-muted mt-1" style="font-size:.72rem">${s.trigger}</div>
+    </div>
+  </div>`;
+}
+
+['all','onboarding','adoption','retention','offboarding'].forEach(tab => {
+  const filter = tab === 'all' ? null : tab;
+  document.getElementById(tab+'-cards').innerHTML =
+    SCENARIOS.filter(s => !filter || s.stage===filter).map(makeCard).join('');
+});
+
+// TOOLTIP — floating PowerBI-style info card on scenario card hover
+(function(){
+  const ttEl = document.createElement('div');
+  ttEl.className = 'scen-tooltip';
+  document.body.appendChild(ttEl);
+
+  function positionTip(e){
+    const margin = 16, w = ttEl.offsetWidth, h = ttEl.offsetHeight;
+    let x = e.clientX + margin, y = e.clientY + margin;
+    if(x + w > window.innerWidth  - margin) x = e.clientX - w - margin;
+    if(y + h > window.innerHeight - margin) y = e.clientY - h - margin;
+    ttEl.style.left = x + 'px';
+    ttEl.style.top  = y + 'px';
+  }
+
+  document.querySelectorAll('.scenario-card').forEach(function(card){
+    card.addEventListener('mouseenter', function(e){
+      const s = SCENARIOS.find(function(x){ return x.id === card.dataset.scenarioId; });
+      if(!s || !s.tip) return;
+      ttEl.innerHTML =
+        '<div class="tt-header">' + s.id + ' &mdash; ' + s.name + '</div>' +
+        '<div class="tt-row"><span class="tt-icon">&#128270;</span><span class="tt-label">Trigger</span><span class="tt-val">' + s.tip.what + '</span></div>' +
+        '<div class="tt-row"><span class="tt-icon">&#128161;</span><span class="tt-label">Why it matters</span><span class="tt-val">' + s.tip.why + '</span></div>' +
+        '<div class="tt-row"><span class="tt-icon">&#9989;</span><span class="tt-label">Recommended action</span><span class="tt-val">' + s.tip.action + '</span></div>' +
+        '<div class="tt-stakeholders">&#128100; Stakeholders: ' + s.tip.stakeholders + '</div>';
+      ttEl.style.display = 'block';
+      positionTip(e);
+    });
+    card.addEventListener('mousemove', positionTip);
+    card.addEventListener('mouseleave', function(){ ttEl.style.display = 'none'; });
+  });
+})();
+
+// BAR CHART
+const scenarioChartInst = new Chart(document.getElementById('scenarioChart'),{
+  type:'bar',
+  data:{
+    labels:SCENARIOS.map(s=>s.id),
+    datasets:[{
+      label:'Accounts in Alert',
+      data:SCENARIOS.map(s=>s.count),
+      backgroundColor:SCENARIOS.map(s=>stageColor[s.stage]),
+      borderRadius:4
+    }]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{
+      title:ctx=>`${SCENARIOS[ctx[0].dataIndex].id} &mdash; ${SCENARIOS[ctx[0].dataIndex].name}`
+    }}},
+    scales:{y:{beginAtZero:true}}
+  }
+});
+
+// DOUGHNUT CHART
+const lossChartInst = new Chart(document.getElementById('lossChart'),{
+  type:'doughnut',
+  data:{
+    labels:['Price','Decision Making','Duplicate Opp.','Accounting Adj.','Unknown','Product Fit','Impl/Integration','Other'],
+    datasets:[{data:[34,15,14,12,10,11,4,6],
+      backgroundColor:['#0d6efd','#198754','#fd7e14','#6f42c1','#6c757d','#20c997','#dc3545','#adb5bd']}]
+  },
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}
+});
+
+// S12 TABLE DATA
+const s12Rows=[
+  ["platform:6150",12,0,"login-only risk","2026-05-18"],["platform:3394",12,0,"login-only risk","2026-05-16"],
+  ["platform:2756",11,0,"login-only risk","2026-05-18"],["platform:15853",10,0,"login-only risk","2026-05-18"],
+  ["platform:4800",9,0,"login-only risk","2026-05-18"],["platform:3675",9,0,"login-only risk","2026-05-18"],
+  ["platform:10191",8,0,"login-only risk","2026-05-15"],["platform:16462",8,0,"login-only risk","2026-05-14"],
+  ["platform:4916",7,0,"login-only risk","2026-05-18"],["platform:4830",7,0,"login-only risk","2026-05-18"],
+  ["platform:4698",7,0,"login-only risk","2026-05-18"],["platform:3282",7,0,"login-only risk","2026-05-18"],
+  ["platform:15921",7,0,"login-only risk","2026-05-18"],["platform:6236",6,0,"login-only risk","2026-05-18"],
+  ["platform:4576",6,0,"login-only risk","2026-05-14"],["platform:2476",4,0,"login-only risk","2026-05-12"],
+  ["platform:2840",4,0,"login-only risk","2026-05-15"],["platform:15547",4,0,"login-only risk","2026-05-15"],
+  ["platform:5059",4,0,"login-only risk","2026-05-15"],["platform:16546",3,0,"login-only risk","2026-05-15"],
+  ["platform:14616",3,0,"login-only risk","2026-05-11"],["platform:16698",3,0,"login-only risk","2026-05-13"],
+  ["platform:14851",3,0,"login-only risk","2026-05-18"],["platform:5148",3,0,"login-only risk","2026-05-18"],
+  ["platform:3604",3,0,"login-only risk","2026-05-15"],["platform:3515",3,0,"login-only risk","2026-05-18"],
+  ["platform:16855",3,0,"login-only risk","2026-05-11"],["platform:3114",3,0,"login-only risk","2026-05-15"],
+  ["platform:331",3,0,"login-only risk","2026-05-14"],["platform:16542",2,0,"login-only risk","2026-05-06"],
+  ["platform:4806",2,0,"login-only risk","2026-05-15"],["platform:5064",2,0,"login-only risk","2026-05-13"],
+  ["platform:6116",2,0,"login-only risk","2026-05-15"],["platform:299",2,0,"login-only risk","2026-05-07"],
+  ["platform:15950",2,0,"login-only risk","2026-05-18"],["platform:14564",2,0,"login-only risk","2026-05-15"],
+  ["platform:5406",2,0,"login-only risk","2026-05-06"],["platform:4971",2,0,"login-only risk","2026-05-15"],
+  ["platform:3150",1,0,"login-only risk","2026-05-07"],["platform:3504",1,0,"login-only risk","2026-05-05"],
+  ["platform:3040",1,0,"login-only risk","2026-05-12"],["platform:5950",1,0,"login-only risk","2026-05-13"],
+  ["platform:16579",1,0,"login-only risk","2026-05-14"],["platform:3297",1,0,"login-only risk","2026-05-15"],
+  ["platform:16527",1,0,"login-only risk","2026-05-06"],["platform:4776",1,0,"login-only risk","2026-05-05"],
+  ["platform:15183",1,0,"login-only risk","2026-05-15"],["platform:5952",1,0,"login-only risk","2026-05-05"],
+  ["platform:14607",1,0,"login-only risk","2026-05-06"],["platform:4074",1,0,"login-only risk","2026-05-08"],
+  ["platform:15966",1,0,"login-only risk","2026-05-07"],["platform:16776",1,0,"login-only risk","2026-05-18"],
+  ["platform:16850",1,0,"login-only risk","2026-05-18"],["platform:15216",1,0,"login-only risk","2026-05-05"],
+  ["platform:14621",1,0,"login-only risk","2026-05-15"],["platform:5650",1,0,"login-only risk","2026-05-06"],
+  ["platform:6239",1,0,"login-only risk","2026-05-13"],["platform:3545",1,0,"login-only risk","2026-05-08"],
+  ["platform:3729",1,0,"login-only risk","2026-05-07"],["platform:2844",1,0,"login-only risk","2026-05-15"],
+  ["platform:4353",1,0,"login-only risk","2026-05-07"],["platform:4673",1,0,"login-only risk","2026-05-18"],
+  ["platform:6691",1,0,"login-only risk","2026-05-08"],["platform:15851",1,0,"login-only risk","2026-05-14"],
+  ["platform:3411",1,0,"login-only risk","2026-05-11"],["platform:16981",1,0,"login-only risk","2026-05-14"],
+  ["platform:5309",1,0,"login-only risk","2026-05-05"],["platform:5070",1,0,"login-only risk","2026-05-14"],
+  ["platform:16146",1,0,"login-only risk","2026-05-18"],["platform:3084",1,0,"login-only risk","2026-05-18"]
+];
+const s12Body=document.getElementById('s12Body');
+s12Rows.forEach(r=>{
+  const hcls=r[3]==='login-only risk'?'health-login-only':r[3].includes('low')?'health-low':'health-healthy';
+  s12Body.innerHTML+=`<tr>
+    <td><code class="small">${r[0]}</code></td>
+    <td class="text-center">${r[1]}</td><td class="text-center">${r[2]}</td>
+    <td><span class="health-badge ${hcls}">${r[3]}</span></td><td>${r[4]}</td></tr>`;
+});
+
+// S16 TABLE DATA &mdash; [account_name, sfdc_account_id, account_type, date, loss_reason, sub_reason, used_il, saved_rule, uploaded_report, users_at_churn]
+const s16Rows=[
+  ["Eezy Oyj","0014U00002cvnZAQAY","Customer","2026-04-23","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["NYAB AB","0012S00002DRl93QAD","Customer","2026-03-15","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["Aktia Bank Abp","0014U00002cvnWpQAI","Customer","2026-03-09","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["Qstar FÃ¶rsÃ¤ljning AB","001VJ00000ecAdeYAE","Prospect","2026-02-16","Decision Making Process","Loss of Champion",0,0,0,0],
+  ["Sunpine AB","0012S00002WgezyQAB","Customer","2026-02-11","Decision Making Process","Project/initiative ended",0,0,0,0],
+  ["Reed Family Companies","001f400000dS6zdAAC","Customer","2026-02-07","Accounting Adjustment","N/A",0,0,0,0],
+  ["Brother","0014U00002md8b1QAA","Customer","2026-01-27","Stalled","N/A",0,0,0,0],
+  ["Koskisen Oyj","0014U00002cvndgQAA","Customer","2025-12-19","Duplicate Opportunity","N/A",0,0,0,0],
+  ["N N COMPANY SRL","0012S00002NJr9FQAT","Prospect","2025-12-11","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["Saltex Group Oy","0014U00002cvnmTQAQ","Customer","2025-12-01","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["AKG Sverige AB","001VJ00000dndhjYAA","Prospect","2025-11-28","Nurture","N/A",0,0,0,0],
+  ["Pure Wafer","001f4000018Er4mAAC","Customer","2025-11-20","Product Fit","Usability",0,0,0,3],
+  ["Suur-Savon SÃ¤hkÃ¶ Oy","0014U00002cvnlHQAQ","Customer","2025-11-14","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["Hermann Oak Leather Company","001f4000011unbVAAQ","Customer","2025-11-03","Decision Making Process","Change in Priorities",0,0,0,10],
+  ["Atlantis the Palm limited","001f400000dS78zAAC","Customer","2025-10-30","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["Mid America Pet Food LLC","001f400000dS7wTAAS","Customer","2025-10-07","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["Koskisen Oyj","0014U00002cvndgQAA","Customer","2025-10-04","Accounting Adjustment","N/A",0,0,0,0],
+  ["AhlstrÃ¶m Konsernipalvelut Oy","0014U00002cvnWjQAI","Customer","2025-10-04","Accounting Adjustment","N/A",0,0,0,0],
+  ["The Financial Times Limited","001f400000dSQ5gAAG","Customer","2025-09-10","Decision Making Process","Change in Priorities",0,0,0,192],
+  ["The Financial Times Limited","001f400000dSQ5gAAG","Customer","2025-09-10","Decision Making Process","Change in Priorities",0,0,0,192],
+  ["Smyths Toys HQ UC","001f400000oSdrzAAC","Customer","2025-09-01","Accounting Adjustment","N/A",0,0,0,4],
+  ["Business Insights NZ Ltd","0012S00002EVs9oQAD","Partner","2025-08-29","Decision Making Process","Sales Process",0,0,0,0],
+  ["Telia Finland Oyj","0014U00002cvnlnQAA","Customer","2025-08-12","Product Fit","Features/Functionality",0,0,0,0],
+  ["Smyths Toys HQ UC","001f400000oSdrzAAC","Customer","2025-08-07","Accounting Adjustment","N/A",0,0,0,4],
+  ["Espoon Kaupunki","0014U00002cvnZpQAI","Customer","2025-08-04","Price","Budget",0,0,0,0],
+  ["Vantaan kaupunki","0014U00002cvnmrQAA","Customer","2025-08-04","Implementation and Integration","Timeline",0,0,0,0],
+  ["RAYNER SURGICAL GROUP LIMITED","001VJ00000AqWOpYAN","Prospect","2025-07-11","Price","Budget",0,0,0,0],
+  ["Tokmanni Oy","0014U00002cvnmEQAQ","Customer","2025-07-05","Accounting Adjustment","N/A",0,0,0,0],
+  ["House Of Test Consulting AB","0014U00002tdYMTQA2","Prospect","2025-06-21","Price","Pricing and Packaging",0,0,0,0],
+  ["WHG (International) Limited","001f400000dSQQUAA4","Customer","2025-06-18","Product Fit","Features/Functionality",0,0,0,0],
+  ["Australian Radio Network Pty Limited","0012S00002A4zXdQAJ","Customer","2025-06-16","Product Fit","Platform shift",0,0,0,49],
+  ["Ethan Allen Global, Inc.","001f400000dS6FQAA0","Customer","2025-04-23","Implementation and Integration","Timeline",0,0,0,0],
+  ["THE WAREHOUSE GROUP LIMITED","001VJ00000Aqs6eYAB","Prospect","2025-03-27","Decision Making Process","Change in Priorities",0,0,0,0],
+  ["Ankrom Moisan","0012S00002B2Xz7QAF","Customer","2025-02-26","Accounting Adjustment","",0,0,0,0],
+  ["The Financial Times Limited","001f400000dSQ5gAAG","Customer","2025-02-26","Price","Perceived Value",0,0,0,192],
+  ["Davisware","001f400000dS6uMAAS","Partner","2025-02-23","Duplicate Opportunity","",0,0,0,0],
+  ["AVA Risk Group Ltd","0012S00002L0N8rQAF","Customer","2025-02-10","Duplicate Opportunity","",0,0,0,9],
+  ["Century 3, Inc.","0012S00002I8loeQAB","Customer","2025-01-15","Product Fit","Features/Functionality",0,0,0,0],
+  ["Telereal Services Ltd","001f400000dSQNVAA4","Customer","2025-01-09","Duplicate Opportunity","",0,0,0,0],
+  ["Sam Service, Inc.","0012S00002BtdnUQAR","Customer","2024-12-20","Duplicate Opportunity","",0,0,0,20],
+  ["Sam Service, Inc.","0012S00002BtdnUQAR","Customer","2024-12-20","Duplicate Opportunity","",0,0,0,20],
+  ["Ancor Holdings, LP","001f4000011upwiAAA","Prospect","2024-12-13","Unresponsive","",0,0,0,0],
+  ["Angus Consulting Management","0012S00002B2KudQAF","Former Customer","2024-12-02","Price","Perceived Value",0,0,0,5],
+  ["Dayton Lamina Corporation","001f400000dS79KAAS","Customer","2024-11-27","Price","",0,0,0,0],
+  ["Central Contra Costa Sanitary District","0014U00002on6InQAI","Customer","2024-11-26","Product Fit","Competitor Strength",0,0,0,0],
+  ["Accurate Mechanical, Inc","001f400000dS79hAAC","Customer","2024-11-20","Duplicate Opportunity","",0,0,0,0],
+  ["Accurate Mechanical, Inc","001f400000dS79hAAC","Customer","2024-10-26","Accounting Adjustment","",0,0,0,0],
+  ["Wastech Engineering","001VJ00000J3WA7YAN","Prospect","2024-09-26","Price","Perceived Value",0,0,0,0],
+  ["CENET LIMITED","0014U000038V5gaQAC","Prospect","2024-09-26","Price","",0,0,0,0],
+  ["Sam Service, Inc.","0012S00002BtdnUQAR","Customer","2024-09-09","Duplicate Opportunity","",0,0,0,20],
+  ["Interstate Electrical Services Corp.","001f400000dS75WAAS","Customer","2024-09-09","Implementation and Integration","Loyalty",0,0,0,0],
+  ["Federal Home Loan Bank of Des Moines","001f4000011uqQrAAI","Prospect","2024-09-05","Price","Perceived Value",0,0,0,0],
+  ["Pub People Management Services Ltd","001f400000dS6iaAAC","Customer","2024-08-28","Duplicate Opportunity","",0,0,0,0],
+  ["Sam Service, Inc.","0012S00002BtdnUQAR","Customer","2024-08-17","Accounting Adjustment","",0,0,0,20],
+  ["Australian Radio Network Pty Limited","0012S00002A4zXdQAJ","Customer","2024-08-01","Accounting Adjustment","",0,0,0,49],
+  ["Epicor Software Corp","0014U00002mdBYtQAM","Customer","2024-07-31","Implementation and Integration","Loyalty",0,0,0,0],
+  ["LA GROLLA INVESTMENTS TRUST","001VJ000007xIheYAE","Prospect","2024-07-23","Price","Perceived Value",0,0,0,0],
+  ["insightsoftware Finance","001VJ00000ETuYMYA1","Customer","2024-07-20","Accounting Adjustment","",0,0,0,0],
+  ["insightsoftware Finance","001VJ00000ETuYMYA1","Customer","2024-07-20","Accounting Adjustment","",0,0,0,0],
+  ["SVN Architects + Planners Inc","001VJ000009B8q3YAC","Prospect","2024-07-18","Price","Perceived Value",0,0,0,0],
+  ["ForgeRock","001f4000011vJHpAAM","Former Customer","2024-07-15","Unknown","",0,0,0,9],
+  ["Davisware","001f400000dS6uMAAS","Partner","2024-07-13","","",0,0,0,0],
+  ["Christopher Newport University","001f400000dS73KAAS","Customer","2024-06-24","Unknown","",0,0,0,0],
+  ["DiamondLease LLC","001f400000oSexbAAC","Customer","2024-06-10","Price","Perceived Value",0,0,0,0],
+  ["Colliers Sunshine Coast","001f400000dSQWVAA4","Customer","2024-04-11","Price","Perceived Value",0,0,0,6],
+  ["Tonkin Consulting","0012S00002QyymPQAR","Customer","2024-04-10","Price","",0,0,0,0],
+  ["HYDAC Pty Ltd","001VJ000006nz8fYAA","Prospect","2024-04-09","Product Fit","Features/Functionality",0,0,0,0],
+  ["Bild Services Pty Ltd","001f400000dS77QAAS","Customer","2024-04-08","Duplicate Opportunity","",0,0,0,0],
+  ["Good Price Pharmacy","0014U000038VSr1QAG","Customer","2024-04-04","Price","Perceived Value",0,0,0,0],
+  ["Digital Dubai Government Establishment","001f400000oSdEGAA0","Customer","2024-03-28","Price","Perceived Value",0,0,0,0],
+  ["Becht Engineering Company","001f4000011uqyiAAA","Customer","2024-03-27","Price","Perceived Value",0,0,0,3],
+  ["Velocity Clinical Research, Inc.","0014U00002wyHgZQAU","Prospect","2024-03-13","Product Fit","Features/Functionality",0,0,0,0],
+  ["Architecture Unfolded Inc","0014U000031jZ6aQAE","Prospect","2024-03-07","Price","Perceived Value",0,0,0,0],
+  ["TMC Industries","0012S00002VXYuSQAX","Former Customer","2024-03-01","Price","Perceived Value",0,0,0,0],
+  ["Arabian Packaging","001f400000oSdN5AAK","Former Customer","2024-02-26","Price","Perceived Value",0,0,0,4],
+  ["Gale Associates, Inc.","0012S00002MNLM6QAP","Prospect","2024-02-23","Price","Perceived Value",0,0,0,0],
+  ["SMALLWOOD INC","0014U00002gpDRlQAM","Prospect","2024-02-08","Product Fit","Features/Functionality",0,0,0,0],
+  ["Etica Group","0012S00002IAoP9QAL","Former Customer","2024-02-08","Price","Perceived Value",0,0,0,0],
+  ["SMALLWOOD INC","0014U00002gpDRlQAM","Prospect","2024-02-06","Duplicate Opportunity","",0,0,0,0],
+  ["SHANN PTY LTD","0012S00002CcsX0QAJ","Prospect","2024-02-01","Price","Perceived Value",0,0,0,0],
+  ["ALTEO LIMITED","0014U00003D0EmiQAF","Prospect","2024-01-30","Product Fit","Features/Functionality",0,0,0,0],
+  ["Velocity Clinical Research, Inc.","0014U00002wyHgZQAU","Prospect","2024-01-25","Admin","",0,0,0,0],
+  ["GENTRACK LIMITED","0012S000029X5m1QAC","Prospect","2024-01-25","Admin","",0,0,0,0],
+  ["Pub People Management Services Ltd","001f400000dS6iaAAC","Customer","2024-01-15","Unknown","",0,0,0,0],
+  ["SMOKETEST Sales Operations","0014U00002ygSztQAE","Customer","2024-01-13","Unknown","",0,0,0,0],
+  ["insightsoftware Demo","001VJ00000iey0yYAA","Customer","2024-01-13","Unknown","",0,0,0,0],
+  ["Granite REIT Holdings Limited Partnership","001f400000gLt0pAAC","Customer","2024-01-09","Unknown","",0,0,0,35],
+  ["thinkproject Holding GmbH","0014U00003CzA21QAF","Prospect","2023-12-22","Price","Perceived Value",0,0,0,0],
+  ["Champaign Asphalt, LLC","001f400000dS6rzAAC","Former Customer","2023-12-22","Unknown","",0,0,0,0],
+  ["IMRGLOBAL LIMITED","0014U000031iLGGQA2","Prospect","2023-12-21","Price","Perceived Value",0,0,0,0],
+  ["City Of Goodyear","0012S00002MNaOrQAL","Customer","2023-12-13","Price","Perceived Value",0,0,0,33],
+  ["Good Price Pharmacy","0014U000038VSr1QAG","Customer","2023-12-10","Duplicate Opportunity","",0,0,0,0],
+  ["Essex Property Trust Inc","0012S00002MLS7jQAH","Customer","2023-12-07","Product Fit","Features/Functionality",0,0,0,83],
+  ["Unistress Corp.","001f400000dS6vcAAC","Customer","2023-12-06","Unknown","",0,0,0,0],
+  ["Becht Engineering Company","001f4000011uqyiAAA","Customer","2023-12-05","Price","Perceived Value",0,0,0,3],
+  ["NOMAD COFFEE GROUP PTY LTD","0014U00002vG7KMQA0","Prospect","2023-11-20","Price","Perceived Value",0,0,0,0],
+  ["Safe Software Inc","0012S00002BxDJcQAN","Prospect","2023-11-14","Price","Perceived Value",0,0,0,0],
+  ["ZIPTIE ADVISORY GROUP, LLC","0014U00002okn2xQAA","Prospect","2023-11-03","Unknown","",0,0,0,0],
+  ["CHATMETER, INC.","0012S00002NJre4QAD","Prospect","2023-11-03","Price","Perceived Value",0,0,0,0],
+  ["Protochips, Inc.","0012S00002FtnM8QAJ","Customer","2023-11-01","Price","Perceived Value",0,0,0,9],
+  ["A E S G PROJECT DEVELOPMENT CONSULTANT","0014U00002yfvf7QAA","Prospect","2023-10-20","Duplicate Opportunity","",0,0,0,0],
+  ["Protochips, Inc.","0012S00002FtnM8QAJ","Customer","2023-10-10","Duplicate Opportunity","",0,0,0,9],
+  ["Sparton of Canada, Limited","0012S00002UqAv6QAF","Prospect","2023-10-03","Price","Perceived Value",0,0,0,0],
+  ["TETER","0012S00002HnjCWQAZ","Former Customer","2023-10-02","Unknown","",0,0,0,12],
+  ["IMRGLOBAL LIMITED","0014U000031iLGGQA2","Prospect","2023-09-22","Price","",0,0,0,0],
+  ["The Dennis Engineering Group, LLC","001f400000dS69YAAS","Customer","2023-08-09","Price","Perceived Value",0,0,0,0]
+];
+
+const lossClr={"Price":"#0d6efd","Decision Making Process":"#198754","Duplicate Opportunity":"#fd7e14",
+  "Accounting Adjustment":"#6f42c1","Unknown":"#6c757d","Product Fit":"#20c997",
+  "Implementation and Integration":"#dc3545","Stalled":"#ffc107","Nurture":"#0dcaf0",
+  "Unresponsive":"#e83e8c","Admin":"#adb5bd","":" #adb5bd"};
+function yn(v){return v?'<span class="badge bg-success">Yes</span>':'<span class="badge bg-secondary">No</span>';}
+const s16Body=document.getElementById('s16Body');
+s16Rows.forEach(r=>{
+  const lc=lossClr[r[4]]||'#adb5bd';
+  s16Body.innerHTML+=`<tr>
+    <td class="fw-semibold">${r[0]}</td>
+    <td><code class="small">${r[1]}</code></td>
+    <td><span class="badge bg-light text-dark border">${r[2]}</span></td>
+    <td>${r[3]}</td>
+    <td><span class="badge" style="background:${lc}">${r[4]||'&mdash;'}</span></td>
+    <td class="small text-muted">${r[5]||'&mdash;'}</td>
+    <td>${yn(r[6])}</td><td>${yn(r[7])}</td><td>${yn(r[8])}</td>
+    <td class="text-center fw-bold">${r[9]||0}</td></tr>`;
+});
+
+
+// ACCOUNT 360 DATA — [name, sfdc_id, account_type, scenario_csv]
+// 400 accounts from S2/S4/S5/S11/S14/S16 (partial A-Am range; full set requires additional Snowflake pull)
+const acctData = [
+  ["(CRH Canada) Dufferin Construction Company","001C000001a113SIAQ","","S4,S5"],
+  ["(YES) DBS satellite services ltd.","001C000001dhWmfIAE","","S4"],
+  ["1440 Foods","0012S00002UpM8sQAF","Former Customer","S4"],
+  ["1661, Inc. dba GOAT","0012S00002L00GvQAJ","Customer","S4,S5"],
+  ["1671427 Ontario Inc. dba Mincon Canada","001C000001deUarIAE","","S4,S5"],
+  ["1-800 Contacts, Inc.","001C0000016XvGFIA0","","S2,S4,S5"],
+  ["1888 Industrial Services","0012S00002MeWLBQA3","Customer","S11,S4,S5"],
+  ["1901","0012S00002Q5QTkQAN","Customer (Expired Entitlements)","S4,S5"],
+  ["2GO Group Inc","001f400000oScJUAA0","Customer (Expired Entitlements)","S4,S5"],
+  ["2W Technologies","001f4000011ur5wAAA","Partner","S4"],
+  ["323 Technology Solutions","001C000000xBJTzIAO","","S4"],
+  ["360 Degree Fire Pty Ltd","001C000001iDvQ2IAK","","S4,S5"],
+  ["3cdc","001f400000dS8hfAAC","Customer","S4,S5"],
+  ["3S Services LLC","001C000001YlczQIAR","","S4,S5"],
+  ["40 North Services LLC","001C000001gj60HIAQ","","S4,S5"],
+  ["4RAM POLYMERS","0014U00002cvfCbQAI","Former Customer","S4"],
+  ["7 Rivers Inc.","001VJ00000eSVjOYAW","Partner","S4,S5"],
+  ["A E Door and Window Co","0014U00003D0av7QAB","Customer","S4,S5"],
+  ["A E S G PROJECT DEVELOPMENT CONSULTANT L.L.C","0014U00002yfvf7QAA","Prospect","S16"],
+  ["A J D HOLDING CO","0012S00002MxdWSQAZ","Former Customer","S4,S5"],
+  ["A M King Construction","001C000001fGG45IAG","","S4,S5"],
+  ["A Phelps Petroleum","001VJ00000EuHhFYAV","Customer","S4"],
+  ["A Pro Mechanical","0012S00002QvYc6QAF","Former Customer","S4"],
+  ["A&M Engineering","0014U00002q4ZA5QAM","Customer","S4,S5"],
+  ["A. E. Rosen Electrical","001f400000gJZVsAAO","Customer","S4,S5"],
+  ["A. Schulman, Inc.","0018000000mutAUAAY","","S4,S5"],
+  ["A. Teichert & Sons Inc.","0018000000ONgSMAA1","","S4,S5"],
+  ["A.B. Won Pat Intl Airport Authority, Guam","001C0000013FttzIAC","","S4,S5"],
+  ["A.D. Marble","0012S00002EV2vVQAT","Customer (Expired Entitlements)","S4,S5"],
+  ["A.F. Amorello & Sons","0012S00002JVqJmQAL","Former Customer","S4,S5"],
+  ["A.L.P. Light & Ceiling Products","0018000000ONcJhAAL","","S4,S5"],
+  ["A.O. Hardee and Son Inc.","001C000001ai1GIIAY","","S4,S5"],
+  ["A.P. Construction, Inc.","001C000001cB5z9IAC","","S4,S5"],
+  ["A.S.A.P. Garage Door Repair, Inc.","001VJ00000Z6pqEYAR","Customer","S4"],
+  ["A.W. Oakes & Son, Inc.","001C000001NuX1WIAV","","S4,S5"],
+  ["A_Bob_Nowoc","Global2811","","S2,S4,S5"],
+  ["A_Cloud_Desktops","Global3330","","S2,S4,S5"],
+  ["A_Darrell","Global3031","","S4,S5"],
+  ["A_David","Global2826","","S2,S4,S5"],
+  ["A_Dean","Global2375","","S2"],
+  ["A_Jackie","Global7527","","S2,S4,S5"],
+  ["A_Latannya","Global8011","","S4,S5"],
+  ["A_Mat_Cook","Global2808","","S2,S4,S5"],
+  ["A_NetDemo","Global3231","","S2,S4"],
+  ["A_Paul_Z","Global2809","","S2"],
+  ["A_Sayli","Global4307","","S2,S4,S5"],
+  ["A_Scott","Global1263","","S2,S4,S5"],
+  ["A_ScottH","Global6095","","S4,S5"],
+  ["A_Steve_Adair","Global2807","","S2"],
+  ["AAAS","001C000000wFUnhIAG","","S4,S5"],
+  ["Aanco UK Limited t/a Made for Trade","0014U000034rBW6QAM","Customer (Expired Entitlements)","S4"],
+  ["Aarete","0012S00002MLSGNQA5","Former Customer","S4,S5"],
+  ["AB Concepts","0012S0000292fsnQAA","Customer","S4,S5"],
+  ["AB World Foods","0018000000ONcicAAD","","S4,S5"],
+  ["Abaco Consultores","001C0000012DaqZIAS","","S4"],
+  ["Abaco Systems, Inc","001C000001geQvlIAE","","S4,S5"],
+  ["ABB Industrial Solutions, formerly GE Canada","0018000000ONeQyAAL","","S4,S5"],
+  ["Abbott Australasia Pty Ltd","0018000000ONcICAA1","","S2,S4,S5"],
+  ["Abbott Laboratories S.A.","001f400000dS9VsAAK","Customer","S2,S4,S5"],
+  ["ABC Bus Company","0018000000ONcIEAA1","","S2,S4,S5"],
+  ["ABC Canada Technology Group","001f4000011vJQqAAM","Customer","S4,S5"],
+  ["ABC Fine Wine & Spirits","0018000000ONcIDAA1","","S4,S5"],
+  ["ABCO Corporation","0014U00003Cz1WvQAJ","Customer","S4"],
+  ["ABI Companies Inc.","001C000001UlgXBIAZ","","S4,S5"],
+  ["ABM Franchising Group, LLC","001C000001gcJ38IAE","","S2,S4,S5"],
+  ["ABM Mechanical, Inc.","001f400000zi7IfAAI","Customer","S4,S5"],
+  ["ABP Foods Unlimited Company","0018000000ONcIGAA1","","S2,S4,S5"],
+  ["ABP Ireland","001C000001gjGeWIAU","","S4,S5"],
+  ["Abramson LLC","001f400000zhotiAAA","Customer","S4,S5"],
+  ["ABS (Applied Business Services, Inc)","001C000001YH5KzIAL","","S2,S4,S5"],
+  ["ABSA Bank Limited","001f400000oSdb6AAC","Customer","S2"],
+  ["ABSA Bank Ltd","0018000000ONcIJAA1","","S2"],
+  ["Absher Construction","001C000001YGinXIAT","","S4,S5"],
+  ["Absolute Comfort Technology LLC","001f400000gJZBIAA4","Former Customer","S4,S5"],
+  ["Absorb Software","0012S00002JXOdsQAH","Former Customer","S4,S5"],
+  ["AC Corporation","001C000001eZV9HIAW","","S4,S5"],
+  ["Academy of Nutrition and Dietetics","0018000000ONcJpAAL","","S4,S5"],
+  ["Acadia Realty Trust","001C000000rpz78IAA","","S4,S5"],
+  ["Acadia Services LLC","001f400000r3dD6AAI","Customer","S4,S5"],
+  ["Accelerated Services","0012S00002BtTQwQAN","Former Customer","S4,S5"],
+  ["Accent Plastics","001C0000012cm5jIAA","","S4,S5"],
+  ["ACCENT-FAIRCHILD","0012S00002HqyySQAR","Customer","S4,S5"],
+  ["Access Optics LLC","0012S00002CcKtjQAF","Former Customer","S4,S5"],
+  ["ACCESSESP","001f4000011un7MAAQ","Former Customer","S4,S5"],
+  ["Accessible Technologies Inc","0018000000ONwxBAAT","","S4,S5"],
+  ["Accesso Partners LLC","001f400000dSTAsAAO","Former Customer","S4"],
+  ["ACCO Brands Corporation","0018000000ONcINAA1","","S4,S5"],
+  ["Accounting Micro Systems","001f4000011umAZAAY","Customer (Expired Entitlements)","S4"],
+  ["Accsys Consulting","001C000001WFwXrIAL","","S2"],
+  ["AccTech Botswana - Selfalana Cash & Carry Ltd","001f400000dS6tkAAC","Former Customer","S2"],
+  ["Acctech Malawi - NBS Limited","001C000001WFYHZIA5","","S2,S4"],
+  ["AccTech Systems (Pty) Ltd","0018000000ONrAtAAL","","S2"],
+  ["AccTech Zambia - ZEHRP","001C000001a2mpkIAA","","S2"],
+  ["ACCUDYN DE COSTA RICA SOCIEDAD DE RESPONSABILIDAD LIMITADA","001VJ00000YMXbJYAX","Customer","S4,S5"],
+  ["Accudyn De Mexico S. De R.L. De C.V.","001C000001UjiXRIAZ","","S4,S5"],
+  ["Accudyn Products Inc.","001C000001R1AOsIAN","","S4,S5"],
+  ["Accu-Flo Meter Service Ltd","001C000001iCk8QIAS","","S4,S5"],
+  ["Accumetrics, Inc.","0018000000ONeauAAD","","S2"],
+  ["Accu-Mold","001C000000x8YTNIA2","","S4,S5"],
+  ["Accurate Mechanical, Inc","001f400000dS79hAAC","Customer","S16,S4,S5"],
+  ["Accurate Mechanical, Inc.","001C000001ahLYNIA2","","S4,S5"],
+  ["Accurate Molded Plastics, Inc.","001C0000014xHzHIAU","","S4,S5"],
+  ["Accu-Tube Corp","001C000001kAdFgIAK","","S4,S5"],
+  ["ACE Manufacturing & Parts Co.","001C000001In3LNIAZ","","S4,S5"],
+  ["Ace Metal Crafts Co.","001C000001Dxj8XIAR","","S4,S5"],
+  ["Ace World Companies","0018000000V4CzNAAV","","S2,S4,S5"],
+  ["Aceitera General Deheza S.A.","0018000000QLb90AAD","","S2,S4,S5"],
+  ["Aceros Bergara - Irestal Group","0018000000ONcITAA1","","S4,S5"],
+  ["Achva Academic College","001C000001dhJh6IAE","","S4,S5"],
+  ["ACI Northwest, Inc.","001C000001a19FvIAI","","S4,S5"],
+  ["ACIS","001C000001YFwNsIAL","","S4,S5"],
+  ["Ackerberg Group","001f400000zh3ElAAI","Former Customer","S4,S5"],
+  ["Aclara Technologies LLC","001C000001HzW2KIAV","","S2"],
+  ["ACME Concrete Paving Inc.","001C000001T03nHIAR","","S4,S5"],
+  ["Acme Machine & Welding CO","001C000001Cerc4IAB","","S4,S5"],
+  ["ACMT INC","001f4000011un6DAAQ","Customer (Expired Entitlements)","S4"],
+  ["ACQBuilt Inc","001f4000011umuBAAQ","Customer","S4,S5"],
+  ["Acrivon Therapeutics Inc","0012S00002WhzNrQAJ","Former Customer","S4,S5"],
+  ["ACS Aero Management Limited","001VJ00000bJPGjYAO","Customer","S14"],
+  ["ACS Industries, Inc.","0018000000dhnm1AAA","","S4,S5"],
+  ["ACT Fastening Solutions","0018000000PSA7NAAX","","S4,S5"],
+  ["Action Resources","001C0000015pRyOIAU","","S2,S4,S5"],
+  ["Actron Entities, Inc.","001C000001ZyyaSIAR","","S4,S5"],
+  ["AcuityHealthcare, LP","001C0000015qrThIAI","","S4,S5"],
+  ["Aculab PLC","0018000000ONcIdAAL","","S4"],
+  ["Acushnet Company","0018000000ONdO6AAL","","S2,S4,S5"],
+  ["AcuteCare Health Systems, LLC","001C000001CGZ8kIAH","","S4,S5"],
+  ["ACW PLASTIC PRODUCTS INC","0014U000038VN6tQAG","Former Customer","S4,S5"],
+  ["Ada County Highway District","001C000001XSZlPIAX","","S4,S5"],
+  ["Adams Construction Company","001C000001NvitZIAR","","S4,S5"],
+  ["Adams County","0018000000ONcIfAAL","","S2,S4,S5"],
+  ["ADAPTAS SOLUTIONS LLC","001UO00000mGV4FYAW","Customer","S4"],
+  ["Addiction Recovery Care, LLC","0012S00002IAtmtQAD","Customer","S4,S5"],
+  ["AdelWiggins Group","0018000000ONni4AAD","","S4,S5"],
+  ["Adena Corporation","001f400000gJYzOAAW","Former Customer","S4,S5"],
+  ["Adjustable Forms, Inc.","001C000001chx6hIAA","","S4,S5"],
+  ["Adler Realty Investments Inc","001f400000nrradAAA","Former Customer","S4,S5"],
+  ["Admiral Broach Company Inc.","001C000001CerivIAB","","S4,S5"],
+  ["Admore Air Conditioning Corp","001f400000gJZpsAAG","Customer","S4"],
+  ["AdPime Iberia, S.L.","0018000000ONcIhAAL","","S4,S5"],
+  ["ADS Tactical","0018000000RToDdAAL","","S4,S5"],
+  ["Advance Realty Management Inc.","001f400000gJZYeAAO","Customer","S4,S5"],
+  ["Advance Tank and Construction Co.","001C000001c9oPQIAY","","S2,S4,S5"],
+  ["Advanced American Construction","001C000001YEC7EIAX","","S4,S5"],
+  ["Advanced Applications, Inc.","001C0000016YuxeIAC","","S2"],
+  ["Advanced Cabling Systems, LLC","001C000001YEG5OIAX","","S2"],
+  ["Advanced Concrete Surfaces","001f400000tyTOVAA2","Customer","S4,S5"],
+  ["Advanced Cooling Technologies, Inc.","001f400001AUnYcAAL","Customer","S4,S5"],
+  ["Advanced Machining & Tooling LLC","001C000001kBzqOIAS","","S4,S5"],
+  ["Advanced Molding Technologies","001C000001XttLNIAZ","","S4,S5"],
+  ["Advanced Parts & Service Inc.","001VJ00000Q3VLJYA3","Customer","S4"],
+  ["Advanced Technology Group","001f400000gJa0BAAS","Customer","S4,S5"],
+  ["Advanced Technology Innovations","0012S00002UotfiQAB","Partner","S4"],
+  ["Advanced Technology Sales & Service, Inc.","001f4000011un5kAAA","Customer","S4,S5"],
+  ["Advancial Federal Credit Union","001f400000dS9noAAC","Customer","S4,S5"],
+  ["Advanex (Singapore) Pte Ltd","0012S00002WhRQTQA3","Customer (Expired Entitlements)","S4,S5"],
+  ["ADVANTAGE MANUFACTURING CORP","0012S00002Se5a1QAB","Former Customer","S4"],
+  ["Advantage Services Inc.","0012S00002WhnBfQAJ","Customer","S4"],
+  ["Adventec Manufacturing","001C000001XdkrAIAR","","S4,S5"],
+  ["Advertising Specialty Institute","001f4000011umE3AAI","Customer","S11,S2,S4,S5"],
+  ["ADVICS Manufacturing Ohio, Inc.","0018000000ONcIoAAL","","S2"],
+  ["ADVNC Air Technologies","001f400000hcHPCAA2","Customer","S4,S5"],
+  ["AEC Developments","001f400000hcYZuAAM","Customer","S4,S5"],
+  ["AEC Sterling Corporation","0018000000ONcIqAAL","","S2"],
+  ["AECOM Hunt","001f400000sY2mzAAC","Former Customer","S4,S5"],
+  ["AEON Credit Service (ASIA) Co., Ltd","001C000001K3dd3IAB","","S2"],
+  ["AEON Stores (Hong Kong) Co. Ltd","001C000001Ev2lRIAR","","S2,S4,S5"],
+  ["AEP Canada Inc","0018000000eH15NAAS","","S2"],
+  ["AERO SIMULATION INC","0012S000027fDCWQA2","Customer","S4"],
+  ["Aero Transportation Products, LLC","0018000000ONdzdAAD","","S4,S5"],
+  ["AeroControlex Group, Inc.","0018000000ONx0lAAD","","S2,S4,S5"],
+  ["Aero-Graphics","0012S00002MdrFNQAZ","Former Customer","S4"],
+  ["Aerospace Technology Group (ATG)","001C000001XT0v9IAD","","S4,S5"],
+  ["Aeva","0012S00002MLTKcQAP","Former Customer","S4,S5"],
+  ["AFBA - Armed Forces Benefit Association","001f400000dSBI4AAO","Customer","S4,S5"],
+  ["Affordable Solar","001f400000nrv8xAAA","Customer","S4,S5"],
+  ["AFG Food Equipment","001VJ00000ba0p0YAA","Customer","S4"],
+  ["Afiscooters Ltd.","001C000001c9jwnIAA","","S4,S5"],
+  ["Aflife Financial Services","001C000001YFttWIAT","","S2"],
+  ["Aflife Financial Services (Z) Ltd.","001C000001YtHb9IAF","","S2"],
+  ["AGC Heat Transfer","0012S00002KJilwQAD","Customer","S4,S5"],
+  ["Age Partnership Ltd","001f400000gJZXRAA4","Customer","S4,S5"],
+  ["Agensys, Inc.","0018000000OpzccAAB","","S2"],
+  ["Aggregate Resource Industries, Inc.","001C000001YFmcsIAD","","S4,S5"],
+  ["AGM Marine Contractors Inc.","001C000001fGG3xIAG","","S2,S4,S5"],
+  ["AGS Technology Inc","001f400000vSpadAAC","Former Customer","S2"],
+  ["AGW & Associates, Inc","001VJ00000IoRx9YAF","Customer","S4"],
+  ["AhlstrÃ¶m Konsernipalvelut Oy","0014U00002cvnWjQAI","Customer","S16"],
+  ["AIAC Air Conditioning S.A. (Pty) Ltd","001f400000dS6tmAAC","Former Customer","S2"],
+  ["AIM Aerospace","001f400000xfjOxAAI","Former Customer","S4,S5"],
+  ["AIM Aerospace, Inc.","0012S00002MLTOWQA5","Customer (Expired Entitlements)","S4,S5"],
+  ["AIM Plastics","001f400001AY7sGAAT","Former Customer","S4,S5"],
+  ["A-Industrial Advisors S. de R.L. de C.V.","001f4000018EWdvAAG","Customer","S4,S5"],
+  ["AIPCF VII Strike Funding, LP - Strike Operating Company LLC","001f400000hd77gAAA","Customer","S4,S5"],
+  ["Air Compressor Energy Systems","001VJ00000dsoUQYAY","Customer","S4"],
+  ["Air Compressor Equipment","001VJ00000QX9IUYA1","Customer","S4,S5"],
+  ["Air Cure Inc","001f400000gJa1ZAAS","Customer","S4,S5"],
+  ["Air Handling Equipment Inc.","0014U00003D0VqPQAV","Customer","S4,S5"],
+  ["Air Techniques Inc.","001f4000011unXXAAY","Former Customer","S2,S4"],
+  ["Air Traffic and Navigational Services","0012S00002NKmKrQAL","Customer","S2,S4,S5"],
+  ["Air Waves LLC","0012S00002A6OPjQAN","Customer","S4,S5"],
+  ["AirBorne Systems","001f4000011vkeOAAQ","Customer (Expired Entitlements)","S4,S5"],
+  ["Airco Mechanical Inc.","001C000001c9hl7IAA","","S4,S5"],
+  ["Aircraft Gear Corporation","0014U00002cvjKMQAY","Customer","S4,S5"],
+  ["Airlines of Papua New Guinea","001C000001eZSIDIA4","","S2"],
+  ["Airlite Plastics, Co.","001C0000015nmcfIAA","","S2,S4,S5"],
+  ["Airtec","0012S00002QxgcBQAR","Former Customer","S4"],
+  ["AIT Worldwide Logistics, Inc.","0018000000ONdUHAA1","","S4,S5"],
+  ["AIV, Inc.","001f4000011un0mAAA","Customer","S11,S4,S5"],
+  ["Ajax Paving Industries","001C000001WFNKjIAP","","S4,S5"],
+  ["Ajax Rolled Ring and Machine","0018000000ONrkYAAT","","S2"],
+  ["AKG Sverige AB","001VJ00000dndhjYAA","Prospect","S16"],
+  ["Akron Polymer Products, Inc.","001C000000yhIZ0IAM","","S4,S5"],
+  ["Aktia Bank Abp","0014U00002cvnWpQAI","Customer","S16"],
+  ["Al Hokair Fashion Retail","0012S00002HnIDSQA3","Customer","S4,S5"],
+  ["Al Muzaini Exchange CO KSCC","0012S00002WhTpfQAF","Customer","S4,S5"],
+  ["Alameda Municipal Power","0012S00002B3aYWQAZ","Customer","S4,S5"],
+  ["Alaska Communication Systems","0018000000ONjY2AAL","","S4,S5"],
+  ["Alaska Railroad Corporation","0018000000ONcJFAA1","","S2,S4,S5"],
+  ["ALASTIN Skincare","0012S00002BxC0LQAV","Former Customer","S4,S5"],
+  ["Albaad Masuot Itzhak Ltd.","001C000001WkYA7IAN","","S4,S5"],
+  ["Albar Industries, Inc.","001C000001HXBcsIAH","","S4,S5"],
+  ["Albemarle Heating & Air Inc","001f400000zgjooAAA","Customer","S4,S5"],
+  ["Albritton Williams, Inc.","001C000001YmSoQIAV","","S4,S5"],
+  ["Alcami Corporation","0018000000P7bRUAAZ","","S4,S5"],
+  ["ALCO Management","0012S00002FuS0RQAV","Former Customer","S4,S5"],
+  ["Alcorn Construction, Inc.","001C000001fh3lvIAA","","S2"],
+  ["Alcyone Plumbing","0012S00002W7sjDQAR","Customer","S4,S5"],
+  ["Alder Midstream","0012S00002HqetPQAR","Former Customer","S4,S5"],
+  ["Aldermore Bank","001C0000018PL1SIAW","","S2,S4,S5"],
+  ["Alere Toxicology","001C000000u33tPIAQ","","S2"],
+  ["Alere, Inc.","0018000000ONcaKAAT","","S4,S5"],
+  ["Alex Brands","001C000001ITvLCIA1","","S2,S4,S5"],
+  ["Alexander & Baldwin, Inc.","0018000000ONcJKAA1","","S4,S5"],
+  ["Alfa Laval Inc.","0018000000ONcJNAA1","","S4,S5"],
+  ["Alfa Laval Vortex, Inc. (Vortex Ventures Inc.)","0018000000V4D1qAAF","","S2"],
+  ["Alfred Miller Contracting Company","001C000001gcsafIAA","","S4,S5"],
+  ["Algenol Biofuels Inc.","001f4000011umRzAAI","Customer","S4,S5"],
+  ["Alianca Vinhos de Portugal SA","001C0000018QttWIAS","","S4,S5"],
+  ["Aliante Gaming","001C0000016q4hFIAQ","","S2"],
+  ["ALICO S A","0014U00002rLP3CQAW","Customer (Expired Entitlements)","S4,S5"],
+  ["Alidade Capital, LLC","001f400000smNPBAA2","Customer","S4,S5"],
+  ["All Espresso Service","001UO00000ijZDDYA2","Customer","S4"],
+  ["All Metal Products Limited","0012S00002SdEXUQA3","Former Customer","S4,S5"],
+  ["All Pro Alliance, LLC","0018000000ONcJbAAL","","S2"],
+  ["All Service Plastic Molding","001C000001ghzkCIAQ","","S4,S5"],
+  ["All States Ag Parts, Inc.","001f4000011ullaAAA","Customer","S4,S5"],
+  ["All Time Plastics Pvt. Ltd.","0012S00002CcRNPQA3","Former Customer","S4,S5"],
+  ["All Treat Farms","001C000001eXBclIAG","","S4,S5"],
+  ["Allega Companies","001C000001YtINSIA3","","S4,S5"],
+  ["Allegheny Millwork","001C000001h04fWIAQ","","S4,S5"],
+  ["Allegheny Performance Plastics LLC","0014U00003D0XN5QAN","Customer (Expired Entitlements)","S4,S5"],
+  ["Allegiant Manufacturing, LLC.","0014U00002cwQb4QAE","Customer","S4,S5"],
+  ["Allegro Microsystems LLC","0018000000ONjAKAA1","","S2,S4,S5"],
+  ["Alleima USA LLC","0018000000ONnjBAAT","","S4,S5"],
+  ["Allen Concrete & Masonry, Inc.","0012S00002Hr6wcQAB","Customer (Expired Entitlements)","S4,S5"],
+  ["Alley Cassetty","0014U00002f5SbiQAE","Customer","S4,S5"],
+  ["Alliance Fire & Safety","001f400000gJYvDAAW","Former Customer","S4,S5"],
+  ["Alliance Industrial Refrigeration Services, Inc.","001VJ000009AswRYAS","Customer","S4,S5"],
+  ["Alliance Media South Africa (PTY) LTD","0012S00002EVFEbQAP","Customer","S11,S4,S5"],
+  ["Alliance Precision Plastics (Molding Dynamics)","001C0000018N3EZIA0","","S4,S5"],
+  ["Alliance Transportation Group","0012S0000293SZbQAM","Customer (Expired Entitlements)","S2,S4,S5"],
+  ["Alliance Trust Savings","0018000000ONcJWAA1","","S4,S5"],
+  ["ALLIED AVIATION SERVICES","0012S00002924dnQAA","Customer","S4,S5"],
+  ["Allied Builders System","001f400000gJZpXAAW","Customer","S2,S4,S5"],
+  ["Allied Machine & Engineering Corp.","0018000000ONsBQAA1","","S2,S4,S5"],
+  ["Allied Mineral Products, Inc.","0018000000ONcJZAA1","","S2,S4,S5"],
+  ["Allied Moulded Products, Inc. (OH)","001C000001a1D1EIAU","","S4,S5"],
+  ["ALLIED PLASTICS","0012S00002HJdoSQAT","Customer (Expired Entitlements)","S4,S5"],
+  ["Allison Smith","001f400000zi0TIAAY","Customer","S4,S5"],
+  ["Allosource","001f4000011umJrAAI","Customer","S2,S4,S5"],
+  ["ALLOY & STAINLESS FASTENERS","001f4000011ulKxAAI","Customer (Expired Entitlements)","S4"],
+  ["Alloy Specialties Inc.","0012S00002Q4is5QAB","Former Customer","S4"],
+  ["Alloy Steel Australia Pty Ltd","001f400000hemlTAAQ","Customer","S4,S5"],
+  ["Alltec Integrated Manufacturing, Inc.","001C0000015pFWbIAM","","S4,S5"],
+  ["ALM Service Company","001VJ00000NzMDAYA3","Customer","S4"],
+  ["Almac Clinical Services Ltd.","0018000000ONsZGAA1","","S2,S4,S5"],
+  ["Almetek Industries","0012S00002BxLtKQAV","Customer","S4,S5"],
+  ["Alpek Polyester USA, LLC","0018000000ONmbiAAD","","S2,S4,S5"],
+  ["Alpha Packaging Cleveland","001C0000011ZAfHIAW","","S4,S5"],
+  ["Alpha Technologies","001f4000011umGIAAY","Customer","S2,S4,S5"],
+  ["AlpineStars","001C000001NNVGWIA5","","S4,S5"],
+  ["Alstar Group of Companies Ltd","001f400000vQbVSAA0","Customer","S11,S4,S5"],
+  ["ALTEO LIMITED","0014U00003D0EmiQAF","Prospect","S16"],
+  ["Altfillisch Contractors Inc","001C000001cAdqBIAS","","S4,S5"],
+  ["AltiGen Communications, Inc.","001f4000011ulbIAAQ","Former Customer","S4"],
+  ["Altius Building Company","001C000001cB5qDIAS","","S2,S4,S5"],
+  ["Altratek Plastics Inc.","001C000001ckTNoIAM","","S4,S5"],
+  ["AMA Plastics","0018000000ONgq7AAD","","S2,S4,S5"],
+  ["Amarr Garage Doors","0018000000ONcJoAAL","","S4,S5"],
+  ["Ambler & Co Inc","001f400000gJa17AAC","Customer","S4,S5"],
+  ["Ambrit Engineering","001C000001C27IUIAZ","","S4,S5"],
+  ["AMC Foam Technologies","001C000001deEi0IAE","","S4,S5"],
+  ["AMD PLASTICS","001VJ00000896jIYAQ","Customer (Expired Entitlements)","S4,S5"],
+  ["AMDEV Asset Management Inc.","0012S00002JWoDZQA1","Former Customer","S4,S5"],
+  ["Amdocs Management Ltd.","0018000000PUjNnAAL","","S2"],
+  ["Ameditech","001C000000wFgYZIA0","","S4,S5"],
+  ["Amenity Healthcare","001C000001XQTeJIAX","","S4,S5"],
+  ["AMERGINT Technologies","0012S00002HqcS8QAJ","Former Customer","S4,S5"],
+  ["American Asphalt Paving Company | Wilkes-Barre Materials, LLC","001f400000dS9hJAAS","Former Customer","S4,S5"],
+  ["American Asset Corporation","0012S00002A8CmbQAF","Customer","S4,S5"],
+  ["American Asset Trust, LP","001C000001D2riFIAR","","S4,S5"],
+  ["American Bath Group","001f400000gJZHlAAO","Customer","S4,S5"],
+  ["American Borate Company","001C000001E82InIAJ","","S4,S5"],
+  ["American Campus Communities Services, Inc.","001C000001Ux5GhIAJ","","S4,S5"],
+  ["American Casting & Manufacturing","0012S00002KybgiQAB","Customer","S4,S5"],
+  ["American Cement Company","0018000000ONqzLAAT","","S4,S5"],
+  ["American College of Surgeons","0018000000ONoaSAAT","","S2,S4,S5"],
+  ["American drilling","001f400000hd77IAAQ","Former Customer","S4,S5"],
+  ["American Electric Company LLC","001C000001fGG47IAG","","S4,S5"],
+  ["American Healthcare Investors, LLC","001C000001XT0aAIAT","","S4,S5"],
+  ["American Heating, Inc.","001C000001ag8S0IAI","","S4,S5"],
+  ["American HomePatient","0018000000ONcJuAAL","","S2,S4,S5"],
+  ["American International Group, Inc","0018000000ONmZaAAL","","S2"],
+  ["American Leakless Company LLC","0018000000eFxUkAAK","","S4,S5"],
+  ["American Museum of Natural History","0018000000ONo1uAAD","","S4,S5"],
+  ["American NTN Bearing Manufacturing Corp.","001C000001cCez9IAC","","S2,S4,S5"],
+  ["American Paper Converting Inc.","001C000001a29TQIAY","","S4,S5"],
+  ["American Pavement Systems Inc.","001C000001cjNGiIAM","","S4,S5"],
+  ["American Plastics Group","0018000000ONcJyAAL","","S4,S5"],
+  ["American Pool Service","001C000001P63X5IAJ","","S2"],
+  ["American Printing House for the Blind","001f4000011unW9AAI","Customer","S4,S5"],
+  ["American Roofing & Metal Co., Inc.","001f400000dSA0HAAW","Customer","S2,S4,S5"],
+  ["American Seafood Group","0018000000bto4bAAA","","S4,S5"],
+  ["American Service Co","0012S00002U5yOmQAJ","Customer","S4,S5"],
+  ["American Society for Quality","0018000000ONigmAAD","","S2,S4,S5"],
+  ["American Structural Concrete, LLC","001C000001a0dvCIAQ","","S4,S5"],
+  ["American Superconductor Corporation","001C0000018PKiuIAG","","S4,S5"],
+  ["American Weathermakers, Inc.","001f400000gJYurAAG","Customer","S4,S5"],
+  ["American West Construction","001C000001Z7B4TIAV","","S4,S5"],
+  ["American Woodmark Corporation","0018000000ONrobAAD","","S4,S5"],
+  ["American Wrecking, Inc.","001C000001iusGWIAY","","S4"],
+  ["Americore, Inc.","001f400000gJZDWAA4","Customer","S4,S5"],
+  ["Americraft Carton, Inc.","001f4000011umeSAAQ","Former Customer","S4,S5"],
+  ["Amerimar Enterprises, Inc.","001f400000dS8nWAAS","Customer","S4,S5"],
+  ["AMF Bowling Worldwide, Inc.","0018000000ONcK5AAL","","S2,S4,S5"],
+  ["AMI US Holdings Inc. (formerly American Megatrends Inc.)","0018000000ONrb3AAD","","S4,S5"],
+  ["AMICO - United States","0018000000kmo09AAA","","S4,S5"],
+  ["Amico Design Build","001C000001ddlHlIAI","","S4,S5"],
+  ["Amicus Interiors (Admin) Pty Ltd","001f400000gLsaHAAS","Customer","S2,S4,S5"],
+  ["Amino Transport","001C000001YlUVQIA3","","S4,S5"],
+  ["Amlak Finance PJSC","001f4000018DdejAAC","Customer","S4,S5"],
+  ["Amli Management Company","0018000000ONcK6AAL","","S2,S4"],
+  ["Amos Refrigeration, Inc.","001C000001fGG4AIAW","","S2"],
+  ["AMPAL INC","0014U00002tfIHyQAM","Customer (Expired Entitlements)","S4,S5"],
+  ["Amphenol Aerospace","0018000000ONcK7AAL","","S4,S5"],
+  ["AMS  dba  Prime Electric","001C000001YGlh8IAD","","S4,S5"],
+  ["AMS dba Prime Electric dup","001C000001YEVxuIAH","","S4,S5"],
+  ["AMS Solutions Limited","001VJ0000022viqYAA","Partner","S4,S5"],
+  ["AmTrust Realty Corp.","001f400000nrsOBAAY","Customer","S4,S5"],
+  ["ANCO Insurance, Inc.","0018000000ONcK9AAL","","S2"],
+  ["ANF Group, Inc.","001f400000dSARdAAO","Former Customer","S4,S5"],
+  ["ANSYS, Inc.","0018000000ONkEbAAL","","S4,S5"],
+  ["ANU Enterprise Pty Ltd","001C000001a1gcOIAQ","","S2"],
+  ["AOC Resins","0018000000ONjmXAAT","","S4,S5"],
+  ["APG","001C000001cipXNIAY","","S4,S5"],
+  ["APIC Solutions Inc","001f400000hd774AAA","Former Customer","S4,S5"],
+  ["APR Energy, LLC","001C000000q7lMOIAY","","S4,S5"],
+  ["APSI Construction Management, Inc.","001f4000011urlfAAA","Former Customer","S4,S5"],
+  ["APW BAKERS PRIDE","0012S00002Q5DNqQAN","Customer","S2,S4,S5"],
+  ["APX York Sheet Metal, Inc.","0012S00002Te3iPQAR","Customer","S4"],
+  ["AR Global Investments, LLC","0014U00003D0juwQAB","Customer","S4,S5"],
+  ["ARC American, Inc","001C000001c9GHFIA2","","S4"],
+  ["ARCH MEDICAL SOLUTIONS-NEWTOWN, LLC","0014U00002mbvViQAI","Customer","S4,S5"],
+  ["ARCO Business Services","001C0000016s33JIAQ","","S4,S5"],
+  ["ARK Diagnostics, Inc.","001C000001iuUpBIAU","","S4,S5"],
+  ["ARK Systems, Inc","001C000001ddYfSIAU","","S4,S5"],
+  ["ARXIUM INC","0012S000027fAELQA2","Former Customer","S4"],
+  ["ASA Electronics, LLC","0018000000ONcKjAAL","","S4,S5"],
+  ["ASC Industries, Inc.","001C0000012dmqIIAQ","","S2,S4,S5"],
+  ["ASC1 Inc","001VJ00000DGga7YAD","Customer","S4,S5"],
+  ["ASCO Power Technologies","0018000000ONcKoAAL","","S4,S5"],
+  ["ASI General Contractors","001C000001WFsReIAL","","S2"],
+  ["ASM Affiliates","001f4000011umdnAAA","Customer","S4,S5"],
+  ["ASRC Construction Holding Company","001C000001WvVmSIAV","","S2,S4,S5"],
+  ["ASTRODYNE TDI","0012S000027fLJwQAM","Customer (Expired Entitlements)","S4,S5"],
+  ["AT Building","001f400000gLsaLAAS","Customer","S4,S5"],
+  ["AT Industries, Inc.","001C000001cB66ZIAS","","S4,S5"],
+  ["ATC - Athens Technology Centre","001f400000oSc4EAAS","Former Customer","S4,S5"],
+  ["ATLANTIC AVIATION GROUP LIMITED","0012S00002I9VpLQAV","Customer","S2,S4,S5"],
+  ["ATS Automation Tooling Systems","0018000000UsbekAAB","","S4,S5"],
+  ["ATS Automation Tooling Systems Inc.","0018000000ONcnyAAD","","S2,S4,S5"],
+  ["ATS Construction","001C000001YlfXzIAJ","","S4,S5"],
+  ["ATTC Manufacturing, Inc.","001C000001DxsKYIAZ","","S4,S5"],
+  ["ATW Companies","0012S00002ODyTfQAL","Customer","S4,S5"],
+  ["ATX NETWORKS CORP","001f4000011un7AAAQ","Customer","S4,S5"],
+  ["AUI Partners, LLC","001C0000018QypWIAS","","S4,S5"],
+  ["AUI Power, Inc.","001C000001iusGbIAI","","S4,S5"],
+  ["AUMA Actuators, Inc./USA","0018000000ONcLAAA1","","S4,S5"],
+  ["AUTO MAG LTD COMPANY LLC","0012S00002HIzm2QAD","Former Customer","S4,S5"],
+  ["AVA Risk Group Ltd","0012S00002L0N8rQAF","Customer","S16,S4,S5"],
+  ["AVALIGN TECHNOLOGIES, INC","0012S00002HIzlwQAD","Customer","S4,S5"],
+  ["AVANTECH INC","001VJ00000OAtzuYAD","Customer (Expired Entitlements)","S4,S5"],
+  ["AVENIR GLOBAL","0012S00002Hqcm7QAB","Former Customer","S4"],
+  ["AVI Systems, Inc.","001C000001NvqXvIAJ","","S4,S5"],
+  ["AVR Inc.","001C000001Q65vxIAB","","S4,S5"],
+  ["AVR Realty Company","001C000001WkmxLIAR","","S4,S5"],
+  ["AWE TUNING","0012S00002Q5zptQAB","Former Customer","S4,S5"],
+  ["AXISNORTH SOLUTIONS INC","001C000001R1ctqIAB","","S4,S5"],
+  ["AZCO INC.","001C000001P6U3bIAF","","S4,S5"]
+];
+
+
+$(document).ready(function(){
+  const dt12=$('#s12Table').DataTable({pageLength:25,order:[[1,'desc']]});
+  const dt16=$('#s16Table').DataTable({pageLength:25,order:[[3,'desc']]});
+
+  // ── Custom DataTable search: filter S16 by channel / product / CSM ────────
+  $.fn.dataTable.ext.search.push(function(settings){
+    if(settings.nTable.id !== 's16Table') return true;
+    const ch = $('#filterChannel').val();
+    const pr = $('#filterProductLine').val();
+    const cm = $('#filterCsmName').val();
+    if(!ch && !pr && !cm) return true;
+    // Use the per-row account name stored in the row node
+    const name = $(settings.nTable).DataTable().row(arguments[2]).data()[0];
+    const m = allAccounts.find(function(a){ return a[0] === name; });
+    return (!ch || (m && m[4]===ch)) && (!pr || (m && m[5]===pr)) && (!cm || (m && m[6]===cm));
+  });
+
+  // ── Visual update engine — called on every filter change ─────────────────
+  function getActiveFilters(){
+    return {
+      name:    $('#filterAccountName').val().trim(),
+      sfdc:    $('#filterSfdcId').val().trim(),
+      type:    $('#filterAccountType').val(),
+      channel: $('#filterChannel').val(),
+      prod:    $('#filterProductLine').val(),
+      csm:     $('#filterCsmName').val()
+    };
+  }
+
+  function filterS16Rows(f){
+    return s16Rows.filter(function(r){
+      if(f.name    && r[0]!==f.name)  return false;
+      if(f.sfdc    && r[1]!==f.sfdc)  return false;
+      if(f.type    && r[2]!==f.type)  return false;
+      if(f.channel || f.prod || f.csm){
+        const m = allAccounts.find(function(a){ return a[1]===r[1] || a[0]===r[0]; });
+        if(f.channel && (!m || m[4]!==f.channel)) return false;
+        if(f.prod    && (!m || m[5]!==f.prod))    return false;
+        if(f.csm     && (!m || m[6]!==f.csm))     return false;
+      }
+      return true;
+    });
+  }
+
+  function updateAllVisuals(){
+    const f = getActiveFilters();
+    const isFiltered = !!(f.name||f.sfdc||f.type||f.channel||f.prod||f.csm);
+
+    // ── Filter allAccounts ─────────────────────────────────────────────────
+    const filtAccts = allAccounts.filter(function(a){
+      return (!f.name    || a[0]===f.name) &&
+             (!f.sfdc    || a[1]===f.sfdc) &&
+             (!f.type    || a[2]===f.type) &&
+             (!f.channel || a[4]===f.channel) &&
+             (!f.prod    || a[5]===f.prod) &&
+             (!f.csm     || a[6]===f.csm);
+    });
+
+    // ── Per-scenario counts ────────────────────────────────────────────────
+    const counts = {};
+    SCENARIOS.forEach(function(s){ counts[s.id] = isFiltered ? 0 : s.count; });
+    if(isFiltered){
+      filtAccts.forEach(function(a){
+        (a[3]||'').split(',').filter(Boolean).forEach(function(sid){
+          if(counts.hasOwnProperty(sid)) counts[sid]++;
+        });
+      });
+      // S16 — override with full row data (all 106 rows are loaded)
+      counts['S16'] = new Set(filterS16Rows(f).map(function(r){ return r[1]||r[0]; })).size;
+    }
+
+    // ── Scenario card badges ───────────────────────────────────────────────
+    SCENARIOS.forEach(function(s){
+      document.querySelectorAll('[data-scenario-id="'+s.id+'"]').forEach(function(card){
+        const badge = card.querySelector('.count-badge');
+        if(!badge) return;
+        badge.textContent = counts[s.id].toLocaleString();
+        badge.className = 'count-badge ' + countCls(counts[s.id]);
+      });
+    });
+
+    // ── Bar chart ─────────────────────────────────────────────────────────
+    scenarioChartInst.data.datasets[0].data = SCENARIOS.map(function(s){ return counts[s.id]; });
+    scenarioChartInst.update('none');
+
+    // ── KPI cards ─────────────────────────────────────────────────────────
+    const onb = ['S1','S2','S3','S4'].reduce(function(s,id){ return s+counts[id]; },0);
+    const adp = ['S5','S6','S7','S8','S9'].reduce(function(s,id){ return s+counts[id]; },0);
+    const ret = ['S10','S11','S12','S13','S14','S15','S16'].reduce(function(s,id){ return s+counts[id]; },0);
+    const totalAccts = isFiltered
+      ? new Set(filtAccts.filter(function(a){ return (a[3]||'').trim(); }).map(function(a){ return a[0]; })).size
+      : 17477;
+    document.getElementById('kpiTotal').textContent = totalAccts.toLocaleString();
+    document.getElementById('kpiOnboarding').textContent = onb.toLocaleString();
+    document.getElementById('kpiAdoption').textContent = adp.toLocaleString();
+    document.getElementById('kpiRetention').textContent = ret.toLocaleString();
+    document.getElementById('kpiTotalSub').textContent = isFiltered ? 'accounts with alerts (filtered)' : 'across 16 scenarios';
+    document.getElementById('kpiOnboardingSub').textContent = isFiltered ? 'S1–S4 combined (filtered)' : 'License never used: 5,861 • Upload stall: 5,844';
+    document.getElementById('kpiAdoptionSub').textContent  = isFiltered ? 'S5–S9 combined (filtered)'  : 'Feature gap: 5,303 • IL never entered: 44';
+    document.getElementById('kpiRetentionSub').textContent = isFiltered ? 'S10–S16 combined (filtered)': 'Dormant seats: 82 • Cancellations: 106';
+
+    // ── S16 section badge + doughnut chart ────────────────────────────────
+    const filtS16 = filterS16Rows(f);
+    document.getElementById('s16Count').textContent = filtS16.length + ' accounts';
+    document.getElementById('lossChartTitle').textContent = 'S16 — Closed Lost Reasons (' + filtS16.length + ')';
+
+    const lossMap = {};
+    filtS16.forEach(function(r){ const k=r[4]||'Unknown'; lossMap[k]=(lossMap[k]||0)+1; });
+    const lossLabels = Object.keys(lossMap).sort();
+    lossChartInst.data.labels = lossLabels;
+    lossChartInst.data.datasets[0].data   = lossLabels.map(function(l){ return lossMap[l]; });
+    lossChartInst.data.datasets[0].backgroundColor = lossLabels.map(function(l){ return lossClr[l]||'#adb5bd'; });
+    lossChartInst.update('none');
+  }
+
+  // ── Scenario metadata for Account 360 tiles ───────────────────────────────
+  const scenMeta = {
+    S2:  {label:'License Key Never Used',      stage:'onboarding',  color:'#0d6efd'},
+    S4:  {label:'First Report Upload Stall',    stage:'onboarding',  color:'#0d6efd'},
+    S5:  {label:'Feature Discovery Gap',        stage:'adoption',    color:'#198754'},
+    S11: {label:'Dormant Licensed Seats',       stage:'retention',   color:'#fd7e14'},
+    S14: {label:'Pre-Renewal Health Scorecard', stage:'retention',   color:'#fd7e14'},
+    S16: {label:'Cancellation — IL Adoption',   stage:'offboarding', color:'#dc3545'},
+  };
+
+  // ── Populate Account Name dropdown from acctData + S16 unique accounts ────
+  const sel = document.getElementById('filterAccountName');
+
+  // Merge acctData with any S16 accounts not already in acctData
+  const acctIndex = new Map(acctData.map(a => [a[0], a]));
+  s16Rows.forEach(function(r){
+    if (!acctIndex.has(r[0])) {
+      acctIndex.set(r[0], [r[0], r[1], r[2], 'S16']);
+    }
+  });
+  // Sample values for channel / product / CSM — sourced from MTM_MASTER_ACCOUNT in production
+  const _CH  = ['Direct','Partner / Reseller','Online','Strategic'];
+  const _PL  = ['Angles Professional','Angles Professional | Spreadsheet Server','Angles Professional | Hubble'];
+  const _CSM = ['Sarah Mitchell','James Carter','Priya Sharma','Tom Wilson','Emma Davis','Ryan Lee','Aisha Patel','Chris Brown'];
+
+  // Extend each row to [name, sfdc, type, scenarios, channel, productLine, csmName]
+  const allAccounts = [...acctIndex.values()].sort((a,b) => a[0].localeCompare(b[0])).map(function(a, idx){
+    const t = a[2]; let ch, pl, csm;
+    if (t === 'Partner')                                                            { ch = 'Partner / Reseller'; pl = _PL[0];          csm = ''; }
+    else if (t === 'Former Customer' || t === 'Customer (Expired Entitlements)')    { ch = _CH[idx % 3];          pl = _PL[0];          csm = ''; }
+    else if (t === 'Prospect')                                                      { ch = _CH[(idx+1)%_CH.length]; pl = _PL[0];        csm = ''; }
+    else                                                                            { ch = _CH[idx%_CH.length];    pl = _PL[idx%_PL.length]; csm = _CSM[idx%_CSM.length]; }
+    return [a[0], a[1], a[2], a[3]||'', ch, pl, csm];
+  });
+
+  allAccounts.forEach(function(a){
+    const o = document.createElement('option');
+    o.value = a[0]; o.dataset.sfdc = a[1]; o.dataset.type = a[2]; o.dataset.scenarios = a[3];
+    o.dataset.channel = a[4]; o.dataset.productLine = a[5]; o.dataset.csm = a[6];
+    o.textContent = a[0];
+    sel.appendChild(o);
+  });
+
+  // Populate Channel / Product Line / CSM dropdowns from unique values
+  function populateDropdown(id, values) {
+    const el = document.getElementById(id);
+    [...new Set(values.filter(Boolean))].sort().forEach(function(v){
+      const o = document.createElement('option'); o.value = v; o.textContent = v;
+      el.appendChild(o);
+    });
+  }
+  populateDropdown('filterChannel',     allAccounts.map(function(a){ return a[4]; }));
+  populateDropdown('filterProductLine', allAccounts.map(function(a){ return a[5]; }));
+  populateDropdown('filterCsmName',     allAccounts.map(function(a){ return a[6]; }));
+
+  // ── Account 360 tile builder ──────────────────────────────────────────────
+  function showAccountView(name, sfdc, type){
+    const av = document.getElementById('accountView');
+    if(!name){ av.style.setProperty('display','none','important'); return; }
+    av.style.removeProperty('display');
+    document.getElementById('accountViewName').textContent = name;
+    document.getElementById('accountViewType').textContent = type || '';
+    document.getElementById('accountViewSfdc').textContent = sfdc ? ('ID: ' + sfdc) : '';
+    const acctMeta = allAccounts.find(function(a){ return a[0] === name; });
+    document.getElementById('accountViewChannel').textContent = acctMeta && acctMeta[4] ? ('• Channel: ' + acctMeta[4]) : '';
+    document.getElementById('accountViewProduct').textContent  = acctMeta && acctMeta[5] ? ('• ' + acctMeta[5]) : '';
+    document.getElementById('accountViewCsm').textContent     = acctMeta && acctMeta[6] ? ('CSM: ' + acctMeta[6]) : '';
+
+    const tilesEl = document.getElementById('accountScenarioTiles');
+    const tiles = [];
+    let matchCount = 0;
+
+    // Get scenario list from acctIndex
+    const acctRow = acctIndex.get(name);
+    const acctScens = acctRow ? (acctRow[3]||'').split(',').filter(Boolean) : [];
+
+    // Render a tile for each scenario in the loaded set
+    acctScens.forEach(function(sid){
+      const meta = scenMeta[sid];
+      if(!meta) return;
+      matchCount++;
+      if(sid === 'S16'){
+        // Show detailed S16 rows
+        const inS16 = s16Rows.filter(r => r[0] === name);
+        if(inS16.length){
+          inS16.forEach(function(r){
+            tiles.push(`<div class="col-12 col-md-6">
+              <div class="scenario-tile" style="border-left:4px solid ${meta.color};background:#fff5f5">
+                <div class="d-flex justify-content-between mb-1">
+                  <strong>${sid} &mdash; ${meta.label}</strong>
+                  <span class="stage-header stage-badge-${meta.stage}">${meta.stage}</span>
+                </div>
+                Closed Lost: <strong>${r[3]}</strong> &bull; Reason: <strong>${r[4]||'&mdash;'}</strong> &bull; Sub: ${r[5]||'&mdash;'}<br>
+                Used IL: ${r[6]?'<span class=\'badge bg-success\'>Yes</span>':'<span class=\'badge bg-secondary\'>No</span>'}
+                &bull; Saved Rule: ${r[7]?'<span class=\'badge bg-success\'>Yes</span>':'<span class=\'badge bg-secondary\'>No</span>'}
+                &bull; Uploaded: ${r[8]?'<span class=\'badge bg-success\'>Yes</span>':'<span class=\'badge bg-secondary\'>No</span>'}
+                &bull; Users at churn: <strong>${r[9]}</strong>
+              </div></div>`);
+          });
+        } else {
+          tiles.push(`<div class="col-6 col-md-4 col-lg-3">
+            <div class="scenario-tile" style="border-left:4px solid ${meta.color};background:#fff5f5">
+              <div class="d-flex justify-content-between mb-1">
+                <strong>${sid}</strong>
+                <span class="stage-header stage-badge-${meta.stage}">${meta.stage}</span>
+              </div>
+              <div class="small">${meta.label}</div>
+            </div></div>`);
+        }
+      } else {
+        tiles.push(`<div class="col-6 col-md-4 col-lg-3">
+          <div class="scenario-tile" style="border-left:4px solid ${meta.color};background:${meta.stage==='onboarding'?'#f0f5ff':meta.stage==='adoption'?'#f0fff4':'#fff8f0'}">
+            <div class="d-flex justify-content-between mb-1">
+              <strong>${sid}</strong>
+              <span class="stage-header stage-badge-${meta.stage}">${meta.stage}</span>
+            </div>
+            <div class="small">${meta.label}</div>
+          </div></div>`);
+      }
+    });
+
+    // Scenarios not in loaded data
+    const notLoaded = ['S1','S3','S6','S7','S8','S9','S10','S12','S13','S15'].filter(s => !acctScens.includes(s));
+    if(notLoaded.length){
+      tiles.push(`<div class="col-12 mt-2">
+        <div class="scenario-tile scenario-tile-none">
+          <strong>Not in loaded dataset:</strong> ${notLoaded.join(', ')} &mdash;
+          these scenarios use platform IDs. Use SFDC ID <code>${sfdc||'&mdash;'}</code> to cross-reference in Snowflake.
+        </div></div>`);
+    }
+
+    tilesEl.innerHTML = tiles.join('');
+    document.getElementById('accountNoMatch').style.display = (matchCount === 0 && acctScens.length === 0) ? 'block' : 'none';
+  }
+
+  // ── Apply filters — drives ALL sections ──────────────────────────────────
+  function applyFilters(){
+    const name    = $('#filterAccountName').val().trim();
+    const sfdc    = $('#filterSfdcId').val().trim();
+    const type    = $('#filterAccountType').val();
+    const channel = $('#filterChannel').val();
+    const prod    = $('#filterProductLine').val();
+    const csm     = $('#filterCsmName').val();
+
+    // Tables
+    dt16.column(0).search(name,false,true)
+        .column(1).search(sfdc,false,true)
+        .column(2).search(type?'^'+type+'$':'',!!type,!type)
+        .draw();
+    dt12.column(0).search(name,false,true).draw();
+
+    // Slicer highlight
+    $('#filterAccountName,#filterSfdcId,#filterAccountType,#filterChannel,#filterProductLine,#filterCsmName').each(function(){
+      $(this).toggleClass('slicer-active', $(this).val() !== '');
+    });
+
+    const selOpt = sel.options[sel.selectedIndex];
+    const resolvedSfdc = sfdc || (selOpt && selOpt.dataset.sfdc) || '';
+    const resolvedType = type || (selOpt && selOpt.dataset.type) || '';
+
+    showAccountView(name || '', resolvedSfdc, resolvedType);
+    updateScenarioFilter(name);
+    showFilterStatus(name, type, sfdc, channel, prod, csm);
+    updateAllVisuals();
+  }
+
+  // ── Scenario card highlight / dim ─────────────────────────────────────────
+  function updateScenarioFilter(name) {
+    const cards = document.querySelectorAll('.scenario-card');
+    if (!name) {
+      cards.forEach(function(c){ c.classList.remove('filtered-in','filtered-out'); });
+      return;
+    }
+    const acctRow = acctIndex.get(name);
+    const activeScens = acctRow ? new Set(acctRow[3].split(',').filter(Boolean)) : new Set();
+    cards.forEach(function(c){
+      const sid = c.dataset.scenarioId;
+      c.classList.toggle('filtered-in',  activeScens.has(sid));
+      c.classList.toggle('filtered-out', !activeScens.has(sid));
+    });
+  }
+
+  // ── Active filter status bar ───────────────────────────────────────────────
+  function showFilterStatus(name, type, sfdc, channel, prod, csm) {
+    const bar   = document.getElementById('filterStatusBar');
+    const textEl = document.getElementById('filterStatusText');
+    const cntEl  = document.getElementById('filterScenarioCount');
+    if (!name && !type && !sfdc && !channel && !prod && !csm) { bar.classList.add('d-none'); return; }
+    bar.classList.remove('d-none');
+    const parts = [];
+    if (name) {
+      const acctRow = acctIndex.get(name);
+      const acctMeta = allAccounts.find(function(a){ return a[0] === name; });
+      const acctType = (acctRow && acctRow[2]) || type || '';
+      const acctSfdc = (acctRow && acctRow[1]) || sfdc || '';
+      parts.push('Account: <strong>' + name + '</strong>');
+      if (acctType) parts.push('Type: <span class="badge bg-light text-dark border">' + acctType + '</span>');
+      if (acctSfdc) parts.push('ID: <code>' + acctSfdc + '</code>');
+      if (acctMeta && acctMeta[4]) parts.push('Channel: <strong>' + acctMeta[4] + '</strong>');
+      if (acctMeta && acctMeta[5]) parts.push('Product: <strong>' + acctMeta[5] + '</strong>');
+      if (acctMeta && acctMeta[6]) parts.push('CSM: <strong>' + acctMeta[6] + '</strong>');
+      const scens = acctRow ? acctRow[3].split(',').filter(Boolean) : [];
+      cntEl.textContent = scens.length + ' scenario' + (scens.length !== 1 ? 's' : '') + ' active';
+    } else {
+      if (type)    parts.push('Type: <strong>' + type + '</strong>');
+      if (sfdc)    parts.push('SFDC ID: <code>' + sfdc + '</code>');
+      if (channel) parts.push('Channel: <strong>' + channel + '</strong>');
+      if (prod)    parts.push('Product: <strong>' + prod + '</strong>');
+      if (csm)     parts.push('CSM: <strong>' + csm + '</strong>');
+      cntEl.textContent = '';
+    }
+    textEl.innerHTML = parts.join(' &bull; ');
+  }
+
+  // ── Rebuild Account Name dropdown filtered by Account Type ───────────────
+  function rebuildNameDropdown(typeFilter, channelFilter, prodFilter, csmFilter) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">&mdash; All Accounts &mdash;</option>';
+    allAccounts
+      .filter(function(a){
+        return (!typeFilter    || a[2] === typeFilter) &&
+               (!channelFilter || a[4] === channelFilter) &&
+               (!prodFilter    || a[5] === prodFilter) &&
+               (!csmFilter     || a[6] === csmFilter);
+      })
+      .forEach(function(a){
+        const o = document.createElement('option');
+        o.value = a[0]; o.dataset.sfdc = a[1]; o.dataset.type = a[2]; o.dataset.scenarios = a[3];
+        o.dataset.channel = a[4]; o.dataset.productLine = a[5]; o.dataset.csm = a[6];
+        o.textContent = a[0];
+        sel.appendChild(o);
+      });
+    if (prev) sel.value = prev;
+  }
+
+  function clearAllFilters(){
+    $('#filterAccountType,#filterChannel,#filterProductLine,#filterCsmName').val('');
+    rebuildNameDropdown('','','','');
+    $('#filterAccountName').val('');
+    $('#filterSfdcId').val('');
+    applyFilters();
+  }
+
+  // Account NAME selected → auto-fill all other filters
+  $('#filterAccountName').on('change', function(){
+    const opt = this.options[this.selectedIndex];
+    if (opt && opt.value) {
+      $('#filterAccountType').val(opt.dataset.type || '');
+      $('#filterSfdcId').val(opt.dataset.sfdc || '');
+      $('#filterChannel').val(opt.dataset.channel || '');
+      $('#filterProductLine').val(opt.dataset.productLine || '');
+      $('#filterCsmName').val(opt.dataset.csm || '');
+    } else {
+      $('#filterSfdcId,#filterChannel,#filterProductLine,#filterCsmName').val('');
+    }
+    applyFilters();
+  });
+
+  // Account TYPE selected → filter Name dropdown, clear stale name/sfdc
+  $('#filterAccountType').on('change', function(){
+    const type    = this.value;
+    const channel = $('#filterChannel').val();
+    const prod    = $('#filterProductLine').val();
+    const csm     = $('#filterCsmName').val();
+    const prevName = sel.value;
+    rebuildNameDropdown(type, channel, prod, csm);
+    if (prevName) {
+      const row = acctIndex.get(prevName);
+      if (type && (!row || row[2] !== type)) { sel.value = ''; $('#filterSfdcId').val(''); }
+    }
+    applyFilters();
+  });
+
+  // SFDC Account ID typed → find matching account, auto-fill all filters
+  $('#filterSfdcId').on('input', function(){
+    const sfdc = this.value.trim();
+    if (sfdc.length >= 15) {
+      const match = allAccounts.find(function(a){ return a[1] === sfdc; });
+      if (match) {
+        $('#filterAccountType').val(match[2]);
+        $('#filterChannel').val(match[4]);
+        $('#filterProductLine').val(match[5]);
+        $('#filterCsmName').val(match[6]);
+        rebuildNameDropdown(match[2], match[4], match[5], match[6]);
+        sel.value = match[0];
+      }
+    }
+    applyFilters();
+  });
+
+  // Channel / Product Line / CSM → cascade into Account Name dropdown
+  $('#filterChannel,#filterProductLine,#filterCsmName').on('change', function(){
+    const type    = $('#filterAccountType').val();
+    const channel = $('#filterChannel').val();
+    const prod    = $('#filterProductLine').val();
+    const csm     = $('#filterCsmName').val();
+    const prevName = sel.value;
+    rebuildNameDropdown(type, channel, prod, csm);
+    if (prevName) {
+      const row = allAccounts.find(function(a){ return a[0] === prevName; });
+      if (row) {
+        const still = (!type || row[2]===type) && (!channel || row[4]===channel) && (!prod || row[5]===prod) && (!csm || row[6]===csm);
+        if (!still) { sel.value = ''; $('#filterSfdcId').val(''); }
+      }
+    }
+    applyFilters();
+  });
+
+  $('#clearSlicers,#filterStatusClear').on('click', clearAllFilters);
+});
+
+</script>
+</body>
+</html>
