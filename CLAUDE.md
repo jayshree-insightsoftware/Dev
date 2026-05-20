@@ -6,7 +6,15 @@ This file is read automatically by Claude Code on session start. Its contents sh
 
 This is a warehouse-first analytics project. Raw data lives in a SQL warehouse. AI-assisted exploration validates business concepts against the raw data. Validated concepts inform the design of a semantic mart layer in SQL. A thin application reads marts as a contract and renders them. Business logic lives in SQL, not in application code.
 
-Update this section in each new project with specifics: the warehouse account and schema, the source systems, the eventual dashboard purpose, the stakeholders. If you just cloned this template and haven't filled this in yet, see `docs/PROJECT_KICKOFF.md` for the intake workflow.
+**Product:** Reporting Intelligence -- Angles Professional, Report Center, and Intelligence Layer.
+
+**Purpose:** Build triggered alert scripts and a live dashboard for 16 "Moments That Matter" (MTM) CS scenarios across the customer lifecycle (Onboarding, Adoption, Retention, Offboarding). Each scenario identifies accounts matching a behavioral trigger condition, ready to push to Totango or surface to CSMs.
+
+**Warehouse:** Snowflake. Source databases are `dev_telemetry` (product telemetry and licensing) and `inbound_raw` (Salesforce CRM). MTM output tables land in `consumer_beta.telemetry_overview` with the prefix `MTM_`.
+
+**Dashboard:** `dashboard.html` at repo root -- static HTML that reads inline data from the last Snowflake run. Dated 2026-05-19.
+
+**Stakeholders:** CSM Lead, CSMs, AEs, RevOps, CS Leadership, Product, Product Marketing, IT/Provisioning, Legal/Compliance.
 
 ## Branch strategy
 
@@ -42,35 +50,59 @@ This section captures business definitions that have been agreed and validated d
 
 Format: bold term, one-sentence definition, source of truth field or table in parentheses if applicable.
 
-(Empty at template start. Populate during Phase 2 as definitions are agreed.)
+**License validated**: A license key has been used to authenticate and launch the product at least once, evidenced by a non-NULL `LASTVALIDATEDDATE` in `awssql_spslicensing_dbo.customerlicensekeys`. Keys with NULL `LASTVALIDATEDDATE` were provisioned but the product was never launched.
 
-Example shape once populated:
+**Active user (30-day)**: A licensed user (`ASSIGNEDUSER`) with at least one row in `dailylicenseusage` where `LASTVALIDATEDDATE` falls within the last 30 days from the reference date.
 
-**Active customer**: A customer with at least one ARR-generating contract whose end date is on or after the as-of date. (source: `marts/account_status.is_active`)
+**Report Center (RC)**: The primary reporting module of Angles Professional. Telemetry lives in `WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTER`. First activation milestone is reaching the upload page (`RC | User on Reports Upload Page`).
+
+**Intelligence Layer (IL)**: The rule-based alerting module within Angles Professional -- the key premium differentiator. Telemetry lives in `WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER`. Value realization proxy is viewing the Results tab (`INTEL | Click Results tab Button`).
+
+**MTM stage (Onboarding)**: Scenarios S1-S4, covering the period from contract signature through first meaningful product use.
+
+**MTM stage (Adoption)**: Scenarios S5-S9, covering feature breadth, schedule creation, Intelligence Layer entry, and first rule saved.
+
+**MTM stage (Retention)**: Scenarios S10-S14, covering seat utilization, dormancy, IL engagement health, and pre-renewal scoring.
+
+**MTM stage (Offboarding)**: Scenarios S15-S16, covering lapsed-maintenance detection and closed-lost churn audit.
 
 ## Current headline numbers
 
 Quick sanity-check values that should approximately match across sessions. If Claude produces a number wildly different from what's here, something broke -- stop and investigate rather than proceeding.
 
-(Empty at template start. Populate after Phase 2 completes the first full metric pass.)
+As of 2026-05-19 dashboard run (source: `dashboard.html` and `consumer_beta.telemetry_overview.MTM_*` tables):
 
-Example shape once populated:
+| Scenario | Name | Count | Stage |
+|----------|------|-------|-------|
+| S1 | CSM Assignment & Sales Handoff | 0 | Onboarding |
+| S2 | License Key Assigned, Never Used | 5,861 | Onboarding |
+| S3 | Double-Homepage Confusion (ISW to RC) | 104 | Onboarding |
+| S4 | First Report Upload Stall | 5,844 | Onboarding |
+| S5 | Feature Discovery Gap (30-day mark) | 5,303 | Adoption |
+| S6 | Schedule Creation Drop-Off | 22 | Adoption |
+| S7 | Intelligence Layer Never Entered | 44 | Adoption |
+| S8 | Rule Creation Funnel Failure | 6 | Adoption |
+| S9 | First Rule Fired -- Value Realized | 0 | Adoption |
+| S10 | License Seat Utilization Drop | 13 | Retention |
+| S11 | Dormant Licensed Seats -- Renewal Risk | 82 | Retention |
+| S12 | Login-Without-IL Health Check | 70 | Retention |
+| S13 | IL Engagement Drop | 0 | Retention |
+| S14 | Pre-Renewal Health Scorecard | 22 | Retention |
+| S15 | Lapsed Maintenance -- Still Using | 0 | Offboarding |
+| S16 | Cancellation -- IL Adoption Audit | 106 | Offboarding |
+| **Total** | **All scenarios** | **17,477** | -- |
 
-| Metric | Value | As of | Notes |
-|--------|-------|-------|-------|
-| Active customer count | 2,847 | 2026-04-30 | matches finance team monthly review |
-| Total ARR | $548.4M | 2026-04-30 | matches PBI Executive dashboard |
+Note: `DAILYLICENSEUSAGE` data was current to 2026-03-19 at time of last run -- ~2 months stale. Refresh before presenting retention/offboarding numbers to stakeholders.
 
 ## Known data quality issues
 
 Document here any data quality problems discovered during exploration that would corrupt dashboard numbers if ignored. Format each as a one-liner with the count affected and the recommended handling. Review this section before presenting any numbers to stakeholders.
 
-(Empty at template start. Populate as issues are discovered.)
-
-Example shape once populated:
-
-- Ghost accounts: ~120 accounts have NULL customer_type but appear in active queries. Exclude via `customer_type IS NOT NULL` filter in active customer marts.
-- Stale TYPE field: the legacy account_type column is no longer maintained. Use the new account_category field for any account-type logic.
+- Stale licensing data: `DAILYLICENSEUSAGE` was current to 2026-03-19 at the 2026-05-19 run -- approximately 2 months of lag. Parameterise `REF_DATE` in S10 and related scripts to MAX(LASTVALIDATEDDATE) rather than CURRENT_DATE. Retention/offboarding numbers will undercount recent activity until refreshed.
+- Partial join key coverage (affects S2, S3, S4, S14): `customer.WEBID` and `account.PLATFORM_LEGACY_ID_C` joins to telemetry `ACCOUNT_ID` (format `platform:{ID}`) are incomplete -- not all licensing customers match a telemetry account. Each script must include a coverage-check that prints `{X} of {N} accounts matched via join key ({pct}% coverage)`.
+- Rule-fire event not instrumented (affects S9): No telemetry event exists for when an Intelligence Layer rule fires or when a notification is opened. Results tab view (`INTEL | Click Results tab Button`) is the best available proxy. S9 count of 0 may be a gap artifact, not a true zero.
+- No schedule save-draft event (affects S6): Mid-flow abandonment on the schedule creation page is invisible -- only page entry and completion are captured. S6 abandonment rate of 92% is directionally correct but understates true abandonment.
+- Subscriber-not-found error not instrumented (affects S8): When a rule creator adds a subscriber email that is not in the system, there is no error event. This is believed to be the leading cause of Rule Creation Funnel Failure (S8) but cannot be confirmed from current telemetry.
 
 ## Authorized data scope
 
@@ -78,13 +110,29 @@ List the warehouse schemas, databases, and tables that AI assistants are authori
 
 Equally important: list tables that might LOOK relevant but are explicitly out of scope, and why. Negative scope (what not to touch) is as important as positive scope in a large warehouse with hundreds of tables. A table that "seems like it should answer this question but is wrong" will be reached for every session unless explicitly fenced off.
 
-In scope:
+In scope (read-only):
 
-(Populate during Phase 1 inventory)
+- `dev_telemetry.product_telemetry.WM_WHOLOGGEDINYESTERDAY_ANGLESPROF` -- daily login records per account
+- `dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTER` -- Report Center WalkMe events
+- `dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER` -- Intelligence Layer WalkMe events
+- `dev_telemetry.awssql_spslicensing_dbo.customer` -- licensing customer master (join key to SFDC via SALESFORCEID)
+- `dev_telemetry.awssql_spslicensing_dbo.customerlicensekeys` -- individual license key records with LASTVALIDATEDDATE
+- `dev_telemetry.awssql_spslicensing_dbo.dailylicenseusage` -- daily per-user usage records
+- `inbound_raw.salesforce.account` -- SFDC account master (includes PLATFORM_LEGACY_ID_C for telemetry join, CUSTOMER_SUCCESS_ASSOCIATE_C, NEXT_RENEWAL_DATE_C, OPEN_RENEWABLE_AMOUNT_C)
+- `inbound_raw.salesforce.contract` -- contract records with STATUS and CUSTOMER_SIGNED_DATE
+- `inbound_raw.salesforce.opportunity` -- opportunity records with STAGE_NAME and WIN_LOSS_REASON_C
+- `inbound_raw.salesforce.onboarding_c` -- onboarding object with STAGE_C and STATUS_C
+- `consumer_beta.telemetry_overview.MTM_*` -- output tables written by `sql/create_all_mtm_tables.sql`; read by the dashboard
+
+Key join paths:
+- Licensing to SFDC: `awssql_spslicensing_dbo.customer.SALESFORCEID = salesforce.account.ID`
+- Licensing to telemetry: `CONCAT('platform:', customer.WEBID)` matches `product_telemetry.ACCOUNT_ID`
+- SFDC to telemetry: `CONCAT('platform:', account.PLATFORM_LEGACY_ID_C)` matches `product_telemetry.ACCOUNT_ID`
 
 Explicitly out of scope:
 
-(Populate as you discover tables that look relevant but aren't -- include the reason why)
+- Any Snowflake schemas outside `dev_telemetry`, `inbound_raw`, and `consumer_beta.telemetry_overview` -- scope is limited to Angles Professional CS telemetry and the CRM records that support it.
+- `inbound_raw.salesforce.task` and `inbound_raw.salesforce.event` -- CS activity log tables that look relevant but have not been validated against MTM scenarios; do not query until explicitly added to scope.
 
 ## The four phases
 
