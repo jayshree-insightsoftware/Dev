@@ -92,17 +92,17 @@
       </div>
       <div class="slicer-col" style="flex:1.5 1 140px">
         <label for="filterSfdcId">SF Account ID</label>
-        <input type="text" id="filterSfdcId" class="form-control" placeholder="001f400000&hellip;" autocomplete="off">
+        <div class="input-group">
+          <input type="text" id="filterSfdcId" class="form-control" placeholder="001f400000&hellip;" autocomplete="off">
+          <a id="sfdcDirectLink" href="#" target="_blank" title="Open account in Salesforce"
+             class="btn btn-sm"
+             style="display:none;font-size:.75rem;line-height:1;padding:4px 8px;background:var(--isw-teal);color:#fff;white-space:nowrap;">Open in Salesforce &#8599;</a>
+        </div>
       </div>
       <div class="slicer-col">
         <label for="filterAccountType">Type</label>
         <select id="filterAccountType" class="form-select">
           <option value="">All Types</option>
-          <option>Customer</option>
-          <option>Prospect</option>
-          <option>Partner</option>
-          <option>Former Customer</option>
-          <option>Customer (Expired Entitlements)</option>
         </select>
       </div>
       <div class="slicer-col">
@@ -546,9 +546,10 @@ function yn(v){return v?'<span class="badge bg-success">Yes</span>':'<span class
 const s16Body=document.getElementById('s16Body');
 s16Rows.forEach(r=>{
   const lc=lossClr[r[4]]||'#adb5bd';
+  const sfLink=`https://glsft2.lightning.force.com/lightning/r/Account/${r[1]}/view`;
   s16Body.innerHTML+=`<tr>
     <td class="fw-semibold">${r[0]}</td>
-    <td><code class="small">${r[1]}</code></td>
+    <td><a href="${sfLink}" target="_blank" title="Open in Salesforce"><code class="small">${r[1]}</code> <small>&#8599;</small></a></td>
     <td><span class="badge bg-light text-dark border">${r[2]}</span></td>
     <td>${r[3]}</td>
     <td><span class="badge" style="background:${lc}">${r[4]||'&mdash;'}</span></td>
@@ -1130,9 +1131,25 @@ $(document).ready(function(){
       el.appendChild(o);
     });
   }
-  populateDropdown('filterChannel',     allAccounts.map(function(a){ return a[4]; }));
-  populateDropdown('filterProductLine', allAccounts.map(function(a){ return a[5]; }));
-  populateDropdown('filterCsmName',     allAccounts.map(function(a){ return a[6]; }));
+  rebuildAllFilterDropdowns(null);
+
+  // ── Salesforce link helper ────────────────────────────────────────────────
+  const SF_BASE = 'https://glsft2.lightning.force.com/lightning/r/Account/';
+  function sfLink(sfdc){ return SF_BASE + sfdc + '/view'; }
+  // Valid Salesforce Account IDs are exactly 15 or 18 alphanumeric chars.
+  // All sfdc_account_id values now sourced from inbound_raw.salesforce.account.ID
+  // so any properly formatted ID is a live record in the glsft2 org.
+  function updateSfdcLink(sfdc){
+    const btn = document.getElementById('sfdcDirectLink');
+    const valid = sfdc && /^[0-9a-zA-Z]{15}([0-9a-zA-Z]{3})?$/.test(sfdc);
+    if(valid){
+      btn.href = sfLink(sfdc);
+      btn.style.display = '';
+    } else {
+      btn.href = '#';
+      btn.style.display = 'none';
+    }
+  }
 
   // ── Account 360 tile builder ──────────────────────────────────────────────
   function showAccountView(name, sfdc, type){
@@ -1141,7 +1158,9 @@ $(document).ready(function(){
     av.style.removeProperty('display');
     document.getElementById('accountViewName').textContent = name;
     document.getElementById('accountViewType').textContent = type || '';
-    document.getElementById('accountViewSfdc').textContent = sfdc ? ('ID: ' + sfdc) : '';
+    document.getElementById('accountViewSfdc').innerHTML = sfdc
+      ? 'ID: <a href="'+sfLink(sfdc)+'" target="_blank" class="text-white-50" title="Open in Salesforce">'+sfdc+' &#8599;</a>'
+      : '';
     const acctMeta = allAccounts.find(function(a){ return a[0] === name; });
     document.getElementById('accountViewChannel').textContent = acctMeta && acctMeta[4] ? ('• Channel: ' + acctMeta[4]) : '';
     document.getElementById('accountViewProduct').textContent  = acctMeta && acctMeta[5] ? ('• ' + acctMeta[5]) : '';
@@ -1276,7 +1295,7 @@ $(document).ready(function(){
       const acctSfdc = (acctRow && acctRow[1]) || sfdc || '';
       parts.push('Account: <strong>' + name + '</strong>');
       if (acctType) parts.push('Type: <span class="badge bg-light text-dark border">' + acctType + '</span>');
-      if (acctSfdc) parts.push('ID: <code>' + acctSfdc + '</code>');
+      if (acctSfdc) parts.push('ID: <a href="'+sfLink(acctSfdc)+'" target="_blank"><code>' + acctSfdc + '</code> &#8599;</a>');
       if (acctMeta && acctMeta[4]) parts.push('Channel: <strong>' + acctMeta[4] + '</strong>');
       if (acctMeta && acctMeta[5]) parts.push('Product: <strong>' + acctMeta[5] + '</strong>');
       if (acctMeta && acctMeta[6]) parts.push('CSM: <strong>' + acctMeta[6] + '</strong>');
@@ -1284,7 +1303,7 @@ $(document).ready(function(){
       cntEl.textContent = scens.length + ' scenario' + (scens.length !== 1 ? 's' : '') + ' active';
     } else {
       if (type)    parts.push('Type: <strong>' + type + '</strong>');
-      if (sfdc)    parts.push('SFDC ID: <code>' + sfdc + '</code>');
+      if (sfdc)    parts.push('SFDC ID: <a href="'+sfLink(sfdc)+'" target="_blank"><code>' + sfdc + '</code> &#8599;</a>');
       if (channel) parts.push('Channel: <strong>' + channel + '</strong>');
       if (prod)    parts.push('Product: <strong>' + prod + '</strong>');
       if (csm)     parts.push('CSM: <strong>' + csm + '</strong>');
@@ -1314,11 +1333,55 @@ $(document).ready(function(){
     if (prev) sel.value = prev;
   }
 
+  // Bidirectional cross-filter: each dropdown shows only values valid given all OTHER active filters
+  function rebuildAllFilterDropdowns(triggerField) {
+    const type    = $('#filterAccountType').val();
+    const channel = $('#filterChannel').val();
+    const prod    = $('#filterProductLine').val();
+    const csm     = $('#filterCsmName').val();
+
+    function acctMatchingExcept(exclude) {
+      return allAccounts.filter(function(a){
+        return (exclude === 'filterAccountType' || !type    || a[2] === type) &&
+               (exclude === 'filterChannel'     || !channel || a[4] === channel) &&
+               (exclude === 'filterProductLine' || !prod    || a[5] === prod) &&
+               (exclude === 'filterCsmName'     || !csm     || a[6] === csm);
+      });
+    }
+
+    function syncSelect(id, vals, placeholder) {
+      const el = document.getElementById(id);
+      const prev = el.value;
+      el.innerHTML = '<option value="">' + placeholder + '</option>';
+      [...new Set(vals.filter(Boolean))].sort().forEach(function(v){
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v;
+        el.appendChild(o);
+      });
+      if (prev) el.value = prev;
+    }
+
+    if (triggerField !== 'filterAccountType') {
+      syncSelect('filterAccountType', acctMatchingExcept('filterAccountType').map(function(a){ return a[2]; }), 'All Types');
+    }
+    if (triggerField !== 'filterChannel') {
+      syncSelect('filterChannel',     acctMatchingExcept('filterChannel').map(function(a){ return a[4]; }),     'All Channels');
+    }
+    if (triggerField !== 'filterProductLine') {
+      syncSelect('filterProductLine', acctMatchingExcept('filterProductLine').map(function(a){ return a[5]; }), 'All Product Lines');
+    }
+    if (triggerField !== 'filterCsmName') {
+      syncSelect('filterCsmName',     acctMatchingExcept('filterCsmName').map(function(a){ return a[6]; }),     'All CSMs');
+    }
+  }
+
   function clearAllFilters(){
     $('#filterAccountType,#filterChannel,#filterProductLine,#filterCsmName').val('');
+    rebuildAllFilterDropdowns(null);
     rebuildNameDropdown('','','','');
     $('#filterAccountName').val('');
     $('#filterSfdcId').val('');
+    updateSfdcLink('');
     applyFilters();
   }
 
@@ -1331,22 +1394,22 @@ $(document).ready(function(){
       $('#filterChannel').val(opt.dataset.channel || '');
       $('#filterProductLine').val(opt.dataset.productLine || '');
       $('#filterCsmName').val(opt.dataset.csm || '');
+      updateSfdcLink(opt.dataset.sfdc || '');
     } else {
       $('#filterSfdcId,#filterChannel,#filterProductLine,#filterCsmName').val('');
+      updateSfdcLink('');
     }
     applyFilters();
   });
 
-  // Account TYPE selected → filter Name dropdown, clear stale name/sfdc
+  // Account TYPE selected → cross-filter Channel/Product/CSM, then rebuild Account Name
   $('#filterAccountType').on('change', function(){
-    const type    = this.value;
-    const channel = $('#filterChannel').val();
-    const prod    = $('#filterProductLine').val();
-    const csm     = $('#filterCsmName').val();
     const prevName = sel.value;
-    rebuildNameDropdown(type, channel, prod, csm);
+    rebuildAllFilterDropdowns('filterAccountType');
+    rebuildNameDropdown($('#filterAccountType').val(), $('#filterChannel').val(), $('#filterProductLine').val(), $('#filterCsmName').val());
     if (prevName) {
       const row = acctIndex.get(prevName);
+      const type = $('#filterAccountType').val();
       if (type && (!row || row[2] !== type)) { sel.value = ''; $('#filterSfdcId').val(''); }
     }
     applyFilters();
@@ -1365,17 +1428,21 @@ $(document).ready(function(){
         rebuildNameDropdown(match[2], match[4], match[5], match[6]);
         sel.value = match[0];
       }
+      updateSfdcLink(sfdc);
+    } else {
+      updateSfdcLink('');
     }
     applyFilters();
   });
 
-  // Channel / Product Line / CSM → cascade into Account Name dropdown
+  // Channel / Product Line / CSM → cross-filter other dimension dropdowns + Account Name
   $('#filterChannel,#filterProductLine,#filterCsmName').on('change', function(){
+    const prevName = sel.value;
+    rebuildAllFilterDropdowns(this.id);
     const type    = $('#filterAccountType').val();
     const channel = $('#filterChannel').val();
     const prod    = $('#filterProductLine').val();
     const csm     = $('#filterCsmName').val();
-    const prevName = sel.value;
     rebuildNameDropdown(type, channel, prod, csm);
     if (prevName) {
       const row = allAccounts.find(function(a){ return a[0] === prevName; });
