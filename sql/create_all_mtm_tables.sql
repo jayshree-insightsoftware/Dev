@@ -3,6 +3,10 @@
 -- Target schema: consumer_beta.telemetry_overview
 -- Run this script in Snowflake to (re)create all 16 tables.
 -- Tables are prefixed MTM_ so they are easy to identify.
+--
+-- sfdc_account_id is sourced from inbound_raw.salesforce.account.ID
+-- in every scenario so links always point to live Salesforce records.
+-- account_sfdc_link is NULL when no matching SF record exists.
 -- ============================================================
 
 -- ── STAGE: ONBOARDING ────────────────────────────────────────
@@ -12,6 +16,7 @@ CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S1_CSM_ASSIGNMENT_H
 SELECT
   a.NAME                          AS account_name,
   a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   c.CUSTOMER_SIGNED_DATE          AS contract_signed_date,
@@ -33,10 +38,13 @@ WHERE c.STATUS = 'Activated'
 ORDER BY days_since_signature DESC;
 
 -- S2 — License Key Assigned, Never Used
+-- sfdc_account_id sourced from salesforce.account.ID via the existing LEFT JOIN;
+-- accounts where SALESFORCEID has no match in SF produce NULL sfdc_account_id.
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S2_LICENSE_KEY_NEVER_USED AS
 SELECT
   c.CUSTOMERNAME                  AS account_name,
-  c.SALESFORCEID                  AS sfdc_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   clk.ASSIGNEDUSER                AS assigned_user,
@@ -49,6 +57,7 @@ JOIN dev_telemetry.awssql_spslicensing_dbo.customer c
   ON c.CUSTOMERID = clk.CUSTOMERID
 LEFT JOIN inbound_raw.salesforce.account a
   ON a.ID = c.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
 WHERE clk.REGISTERED = TRUE
   AND clk.LASTVALIDATEDDATE IS NULL
   AND clk.DEACTIVATED IS NULL
@@ -58,9 +67,12 @@ WHERE clk.REGISTERED = TRUE
 ORDER BY days_since_assigned DESC;
 
 -- S3 — Double-Homepage Confusion (ISW → RC)
+-- Bridge: telemetry ACCOUNT_ID (platform:WEBID) → customer.WEBID → salesforce.account.ID
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S3_DOUBLE_HOMEPAGE_CONFUSION AS
 SELECT
   l.ACCOUNT_ID                    AS telemetry_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   MAX(l.DATE)                     AS last_login_date,
   COUNT(DISTINCT l.DATE)          AS total_login_days,
   MAX(CASE WHEN r.TRACKED_EVENT_NAME = 'RC | User On Home Page'
@@ -68,7 +80,13 @@ SELECT
 FROM dev_telemetry.product_telemetry.WM_WHOLOGGEDINYESTERDAY_ANGLESPROF l
 LEFT JOIN dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTER r
   ON r.ACCOUNT_ID = l.ACCOUNT_ID
-GROUP BY l.ACCOUNT_ID
+LEFT JOIN dev_telemetry.awssql_spslicensing_dbo.customer lc
+  ON CONCAT('platform:', lc.WEBID) = l.ACCOUNT_ID
+  AND lc._FIVETRAN_DELETED = FALSE
+LEFT JOIN inbound_raw.salesforce.account a
+  ON a.ID = lc.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
+GROUP BY l.ACCOUNT_ID, a.ID
 HAVING ever_reached_rc = 0
 ORDER BY total_login_days DESC;
 
@@ -77,7 +95,8 @@ CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S4_FIRST_REPORT_UPL
 SELECT
   d.CUSTOMERID                    AS licensing_customer_id,
   c.CUSTOMERNAME                  AS account_name,
-  c.SALESFORCEID                  AS sfdc_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   MIN(d.LASTVALIDATEDDATE)        AS first_product_use,
@@ -94,8 +113,9 @@ LEFT JOIN dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTE
   ON r.ACCOUNT_ID = CONCAT('platform:', c.WEBID)
 LEFT JOIN inbound_raw.salesforce.account a
   ON a.ID = c.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
 WHERE c._FIVETRAN_DELETED = FALSE
-GROUP BY d.CUSTOMERID, c.CUSTOMERNAME, c.SALESFORCEID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C
+GROUP BY d.CUSTOMERID, c.CUSTOMERNAME, a.ID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C
 HAVING days_since_first_use > 3
   AND reached_upload_page = 0
 ORDER BY days_since_first_use DESC;
@@ -107,7 +127,8 @@ CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S5_FEATURE_DISCOVER
 SELECT
   d.CUSTOMERID                    AS licensing_customer_id,
   c.CUSTOMERNAME                  AS account_name,
-  c.SALESFORCEID                  AS sfdc_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   COUNT(DISTINCT DATE_TRUNC('day', d.LASTVALIDATEDDATE)) AS active_days,
@@ -126,8 +147,9 @@ LEFT JOIN dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTE
   ON r.ACCOUNT_ID = CONCAT('platform:', c.WEBID)
 LEFT JOIN inbound_raw.salesforce.account a
   ON a.ID = c.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
 WHERE c._FIVETRAN_DELETED = FALSE
-GROUP BY d.CUSTOMERID, c.CUSTOMERNAME, c.SALESFORCEID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C, a.CUSTOMER_SUCCESS_ASSOCIATE_C
+GROUP BY d.CUSTOMERID, c.CUSTOMERNAME, a.ID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C, a.CUSTOMER_SUCCESS_ASSOCIATE_C
 HAVING active_days >= 30
   AND used_lineos = 0
   AND used_view_all = 0
@@ -135,90 +157,144 @@ HAVING active_days >= 30
 ORDER BY active_days DESC;
 
 -- S6 — Schedule Creation Drop-Off
+-- Bridge added in outer query: telemetry ACCOUNT_ID → customer.WEBID → salesforce.account.ID
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S6_SCHEDULE_CREATION_DROPOFF AS
-SELECT
-  ACCOUNT_ID                      AS telemetry_account_id,
-  MIN(CASE WHEN TRACKED_EVENT_NAME = 'RC | User on Create Schedules Page'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS first_schedule_page_visit,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'RC | User on Create Schedules Page'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS last_schedule_page_visit,
-  COUNT(CASE WHEN TRACKED_EVENT_NAME = 'RC | User on Create Schedules Page'
-      THEN 1 END)                 AS schedule_page_visits,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'RC | Create Report Schedule Clicked'
-      THEN 1 ELSE 0 END)          AS completed_schedule,
-  DATEDIFF('day',
+WITH rc_agg AS (
+  SELECT
+    ACCOUNT_ID                      AS telemetry_account_id,
     MIN(CASE WHEN TRACKED_EVENT_NAME = 'RC | User on Create Schedules Page'
-        THEN TRY_TO_DATE(EVENT_TIME) END),
-    CURRENT_DATE)                 AS days_since_first_visit
-FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTER
-GROUP BY ACCOUNT_ID
-HAVING first_schedule_page_visit IS NOT NULL
-  AND completed_schedule = 0
-  AND days_since_first_visit > 5
-ORDER BY schedule_page_visits DESC;
+        THEN EVENT_TIME::DATE END) AS first_schedule_page_visit,
+    MAX(CASE WHEN TRACKED_EVENT_NAME = 'RC | User on Create Schedules Page'
+        THEN EVENT_TIME::DATE END) AS last_schedule_page_visit,
+    COUNT(CASE WHEN TRACKED_EVENT_NAME = 'RC | User on Create Schedules Page'
+        THEN 1 END)                 AS schedule_page_visits,
+    MAX(CASE WHEN TRACKED_EVENT_NAME = 'RC | Create Report Schedule Clicked'
+        THEN 1 ELSE 0 END)          AS completed_schedule
+  FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTER
+  GROUP BY ACCOUNT_ID
+)
+SELECT
+  rc.telemetry_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
+  rc.first_schedule_page_visit,
+  rc.last_schedule_page_visit,
+  rc.schedule_page_visits,
+  rc.completed_schedule,
+  DATEDIFF('day', rc.first_schedule_page_visit, CURRENT_DATE) AS days_since_first_visit
+FROM rc_agg rc
+LEFT JOIN dev_telemetry.awssql_spslicensing_dbo.customer lc
+  ON CONCAT('platform:', lc.WEBID) = rc.telemetry_account_id
+  AND lc._FIVETRAN_DELETED = FALSE
+LEFT JOIN inbound_raw.salesforce.account a
+  ON a.ID = lc.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
+WHERE rc.first_schedule_page_visit IS NOT NULL
+  AND rc.completed_schedule = 0
+  AND DATEDIFF('day', rc.first_schedule_page_visit, CURRENT_DATE) > 5
+ORDER BY rc.schedule_page_visits DESC;
 
 -- S7 — Intelligence Layer Never Entered
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S7_IL_NEVER_ENTERED AS
+WITH rc_agg AS (
+  SELECT
+    rc.ACCOUNT_ID                   AS telemetry_account_id,
+    MIN(rc.EVENT_TIME::DATE)        AS first_rc_event,
+    MAX(rc.EVENT_TIME::DATE)        AS last_rc_event,
+    COUNT(DISTINCT rc.TRACKED_EVENT_NAME) AS distinct_rc_events,
+    COUNT(il.TRACKED_EVENT_NAME)    AS total_il_events
+  FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTER rc
+  LEFT JOIN dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER il
+    ON il.ACCOUNT_ID = rc.ACCOUNT_ID
+  GROUP BY rc.ACCOUNT_ID
+)
 SELECT
-  rc.ACCOUNT_ID                   AS telemetry_account_id,
-  MIN(TRY_TO_DATE(rc.EVENT_TIME)) AS first_rc_event,
-  MAX(TRY_TO_DATE(rc.EVENT_TIME)) AS last_rc_event,
-  COUNT(DISTINCT rc.TRACKED_EVENT_NAME) AS distinct_rc_events,
-  DATEDIFF('day', MIN(TRY_TO_DATE(rc.EVENT_TIME)), CURRENT_DATE) AS days_in_rc,
-  COUNT(il.TRACKED_EVENT_NAME)    AS total_il_events
-FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLEPROF_REPORTCENTER rc
-LEFT JOIN dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER il
-  ON il.ACCOUNT_ID = rc.ACCOUNT_ID
-GROUP BY rc.ACCOUNT_ID
-HAVING days_in_rc >= 7
-  AND total_il_events = 0
-ORDER BY days_in_rc DESC;
+  rc.telemetry_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
+  rc.first_rc_event,
+  rc.last_rc_event,
+  rc.distinct_rc_events,
+  DATEDIFF('day', rc.first_rc_event, CURRENT_DATE) AS days_in_rc,
+  rc.total_il_events
+FROM rc_agg rc
+LEFT JOIN dev_telemetry.awssql_spslicensing_dbo.customer lc
+  ON CONCAT('platform:', lc.WEBID) = rc.telemetry_account_id
+  AND lc._FIVETRAN_DELETED = FALSE
+LEFT JOIN inbound_raw.salesforce.account a
+  ON a.ID = lc.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
+WHERE rc.total_il_events = 0
+  AND DATEDIFF('day', rc.first_rc_event, CURRENT_DATE) >= 7
+ORDER BY DATEDIFF('day', rc.first_rc_event, CURRENT_DATE) DESC;
 
 -- S8 — Rule Creation Funnel Failure
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S8_RULE_CREATION_FUNNEL AS
 SELECT
-  ACCOUNT_ID                      AS telemetry_account_id,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | User on Intelligence Layer Home Page'
+  il.ACCOUNT_ID                   AS telemetry_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
+  MAX(CASE WHEN il.TRACKED_EVENT_NAME = 'INTEL | User on Intelligence Layer Home Page'
       THEN 1 ELSE 0 END)          AS visited_il_home,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Intelligence Layer Button Clicked'
+  MAX(CASE WHEN il.TRACKED_EVENT_NAME = 'INTEL | Intelligence Layer Button Clicked'
       THEN 1 ELSE 0 END)          AS clicked_il_button,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Click Create Rule Button'
+  MAX(CASE WHEN il.TRACKED_EVENT_NAME = 'INTEL | Click Create Rule Button'
       THEN 1 ELSE 0 END)          AS started_rule,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Subscribers Added to Rule'
+  MAX(CASE WHEN il.TRACKED_EVENT_NAME = 'INTEL | Subscribers Added to Rule'
       THEN 1 ELSE 0 END)          AS added_subscriber,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
+  MAX(CASE WHEN il.TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
       THEN 1 ELSE 0 END)          AS saved_rule,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Click Results tab Button'
+  MAX(CASE WHEN il.TRACKED_EVENT_NAME = 'INTEL | Click Results tab Button'
       THEN 1 ELSE 0 END)          AS viewed_results_only,
-  COUNT(DISTINCT SESSION_ID)      AS total_il_sessions
-FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER
-GROUP BY ACCOUNT_ID
+  COUNT(DISTINCT il.SESSION_ID)   AS total_il_sessions
+FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER il
+LEFT JOIN dev_telemetry.awssql_spslicensing_dbo.customer lc
+  ON CONCAT('platform:', lc.WEBID) = il.ACCOUNT_ID
+  AND lc._FIVETRAN_DELETED = FALSE
+LEFT JOIN inbound_raw.salesforce.account a
+  ON a.ID = lc.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
+GROUP BY il.ACCOUNT_ID, a.ID
 HAVING visited_il_home = 1
   AND saved_rule = 0
 ORDER BY total_il_sessions DESC;
 
 -- S9 — First Rule Fired — Value Realized (proxy)
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S9_FIRST_RULE_FIRED AS
-SELECT
-  ACCOUNT_ID                      AS telemetry_account_id,
-  MIN(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS first_rule_saved_date,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS last_rule_saved_date,
-  COUNT(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
-      THEN 1 END)                 AS total_rules_saved,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Click Results tab Button'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS last_results_view,
-  DATEDIFF('day',
+WITH il_agg AS (
+  SELECT
+    ACCOUNT_ID                      AS telemetry_account_id,
     MIN(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
-        THEN TRY_TO_DATE(EVENT_TIME) END),
-    CURRENT_DATE)                 AS days_since_first_rule
-FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER
-GROUP BY ACCOUNT_ID
-HAVING first_rule_saved_date IS NOT NULL
-  AND last_results_view IS NULL
-  AND days_since_first_rule > 7
-ORDER BY days_since_first_rule DESC;
+        THEN EVENT_TIME::DATE END) AS first_rule_saved_date,
+    MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
+        THEN EVENT_TIME::DATE END) AS last_rule_saved_date,
+    COUNT(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
+        THEN 1 END)                 AS total_rules_saved,
+    MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Click Results tab Button'
+        THEN EVENT_TIME::DATE END) AS last_results_view
+  FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER
+  GROUP BY ACCOUNT_ID
+)
+SELECT
+  il.telemetry_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
+  il.first_rule_saved_date,
+  il.last_rule_saved_date,
+  il.total_rules_saved,
+  il.last_results_view,
+  DATEDIFF('day', il.first_rule_saved_date, CURRENT_DATE) AS days_since_first_rule
+FROM il_agg il
+LEFT JOIN dev_telemetry.awssql_spslicensing_dbo.customer lc
+  ON CONCAT('platform:', lc.WEBID) = il.telemetry_account_id
+  AND lc._FIVETRAN_DELETED = FALSE
+LEFT JOIN inbound_raw.salesforce.account a
+  ON a.ID = lc.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
+WHERE il.first_rule_saved_date IS NOT NULL
+  AND il.last_results_view IS NULL
+  AND DATEDIFF('day', il.first_rule_saved_date, CURRENT_DATE) > 7
+ORDER BY DATEDIFF('day', il.first_rule_saved_date, CURRENT_DATE) DESC;
 
 -- ── STAGE: RETENTION ─────────────────────────────────────────
 
@@ -246,7 +322,8 @@ usage AS (
 SELECT
   u.CUSTOMERID                    AS licensing_customer_id,
   c.CUSTOMERNAME                  AS account_name,
-  c.SALESFORCEID                  AS sfdc_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   u.active_users_prev_30d,
@@ -261,6 +338,7 @@ JOIN dev_telemetry.awssql_spslicensing_dbo.customer c
   ON c.CUSTOMERID = u.CUSTOMERID
 LEFT JOIN inbound_raw.salesforce.account a
   ON a.ID = c.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
 WHERE u.active_users_prev_30d >= 5
   AND (u.active_users_curr_30d * 1.0 / NULLIF(u.active_users_prev_30d, 0)) < 0.5
   AND c._FIVETRAN_DELETED = FALSE
@@ -270,7 +348,8 @@ ORDER BY u.active_users_prev_30d DESC;
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S11_DORMANT_LICENSED_SEATS AS
 SELECT
   c.CUSTOMERNAME                  AS account_name,
-  c.SALESFORCEID                  AS sfdc_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   a.NEXT_RENEWAL_DATE_C           AS next_renewal_date,
@@ -293,21 +372,24 @@ JOIN dev_telemetry.awssql_spslicensing_dbo.customerlicensekeys clk
   ON clk.CUSTOMERID = c.CUSTOMERID
 JOIN inbound_raw.salesforce.account a
   ON a.ID = c.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
 WHERE clk.REGISTERED = TRUE
   AND clk.DEACTIVATED IS NULL
   AND a.NEXT_RENEWAL_DATE_C BETWEEN CURRENT_DATE AND DATEADD('day', 120, CURRENT_DATE)
   AND clk._FIVETRAN_DELETED = FALSE
   AND c._FIVETRAN_DELETED = FALSE
-  AND a._FIVETRAN_DELETED = FALSE
-GROUP BY c.CUSTOMERNAME, c.SALESFORCEID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C,
+GROUP BY c.CUSTOMERNAME, a.ID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C,
          a.NEXT_RENEWAL_DATE_C, a.OPEN_RENEWABLE_AMOUNT_C, a.CUSTOMER_SUCCESS_ASSOCIATE_C
 HAVING dormancy_pct > 30
 ORDER BY days_to_renewal ASC, dormancy_pct DESC;
 
 -- S12 — Login-Without-IL Health Check
+-- Bridge: telemetry ACCOUNT_ID (platform:WEBID) → customer.WEBID → salesforce.account.ID
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S12_LOGIN_WITHOUT_IL AS
 SELECT
   l.ACCOUNT_ID                    AS telemetry_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   COUNT(DISTINCT l.DATE)          AS login_days_14d,
   COUNT(il.TRACKED_EVENT_NAME)    AS il_events_14d,
   CASE
@@ -319,40 +401,67 @@ SELECT
 FROM dev_telemetry.product_telemetry.WM_WHOLOGGEDINYESTERDAY_ANGLESPROF l
 LEFT JOIN dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER il
   ON il.ACCOUNT_ID = l.ACCOUNT_ID
-  AND TRY_TO_DATE(il.EVENT_TIME) >= DATEADD('day', -14, CURRENT_DATE)
+  AND il.EVENT_TIME::DATE >= DATEADD('day', -14, CURRENT_DATE)
+LEFT JOIN dev_telemetry.awssql_spslicensing_dbo.customer lc
+  ON CONCAT('platform:', lc.WEBID) = l.ACCOUNT_ID
+  AND lc._FIVETRAN_DELETED = FALSE
+LEFT JOIN inbound_raw.salesforce.account a
+  ON a.ID = lc.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
 WHERE l.DATE >= DATEADD('day', -14, CURRENT_DATE)
-GROUP BY l.ACCOUNT_ID
+GROUP BY l.ACCOUNT_ID, a.ID
 HAVING login_days_14d > 0
   AND il_events_14d = 0
 ORDER BY login_days_14d DESC;
 
 -- S13 — Intelligence Layer Engagement Drop
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S13_IL_ENGAGEMENT_DROP AS
+WITH il_agg AS (
+  SELECT
+    ACCOUNT_ID                      AS telemetry_account_id,
+    MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
+        THEN EVENT_TIME::DATE END) AS last_rule_save,
+    MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Click Results tab Button'
+        THEN EVENT_TIME::DATE END) AS last_results_view,
+    MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Edit Rule Button'
+        THEN EVENT_TIME::DATE END) AS last_rule_edit,
+    COUNT(DISTINCT CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
+        THEN SESSION_ID END)        AS total_rules_saved,
+    COUNT(DISTINCT CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Delete Rule Button'
+        THEN SESSION_ID END)        AS rules_deleted,
+    MAX(EVENT_TIME::DATE)           AS max_event_date
+  FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER
+  GROUP BY ACCOUNT_ID
+)
 SELECT
-  ACCOUNT_ID                      AS telemetry_account_id,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS last_rule_save,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Click Results tab Button'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS last_results_view,
-  MAX(CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Edit Rule Button'
-      THEN TRY_TO_DATE(EVENT_TIME) END) AS last_rule_edit,
-  COUNT(DISTINCT CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Button to Save Rule Clicked'
-      THEN SESSION_ID END)        AS total_rules_saved,
-  COUNT(DISTINCT CASE WHEN TRACKED_EVENT_NAME = 'INTEL | Delete Rule Button'
-      THEN SESSION_ID END)        AS rules_deleted,
-  DATEDIFF('day', MAX(TRY_TO_DATE(EVENT_TIME)), CURRENT_DATE) AS days_since_any_il_event
-FROM dev_telemetry.product_telemetry.WM_TRACKEDEVENTS_ANGLESPROF_INTELLAYER
-GROUP BY ACCOUNT_ID
-HAVING (last_rule_save IS NOT NULL
-    AND DATEDIFF('day', last_rule_save, CURRENT_DATE) > 60)
-  OR (last_results_view IS NULL AND days_since_any_il_event > 14)
-ORDER BY days_since_any_il_event DESC;
+  il.telemetry_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
+  il.last_rule_save,
+  il.last_results_view,
+  il.last_rule_edit,
+  il.total_rules_saved,
+  il.rules_deleted,
+  DATEDIFF('day', il.max_event_date, CURRENT_DATE) AS days_since_any_il_event
+FROM il_agg il
+LEFT JOIN dev_telemetry.awssql_spslicensing_dbo.customer lc
+  ON CONCAT('platform:', lc.WEBID) = il.telemetry_account_id
+  AND lc._FIVETRAN_DELETED = FALSE
+LEFT JOIN inbound_raw.salesforce.account a
+  ON a.ID = lc.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
+WHERE (il.last_rule_save IS NOT NULL
+    AND DATEDIFF('day', il.last_rule_save, CURRENT_DATE) > 60)
+  OR (il.last_results_view IS NULL
+    AND DATEDIFF('day', il.max_event_date, CURRENT_DATE) > 14)
+ORDER BY DATEDIFF('day', il.max_event_date, CURRENT_DATE) DESC;
 
 -- S14 — Pre-Renewal Health Scorecard (120-day window)
 CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S14_PRE_RENEWAL_SCORECARD AS
 SELECT
   a.NAME                          AS account_name,
   a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   a.NEXT_RENEWAL_DATE_C           AS renewal_date,
@@ -408,7 +517,8 @@ CREATE OR REPLACE TABLE consumer_beta.telemetry_overview.MTM_S15_LAPSED_MAINTENA
 SELECT
   c.CUSTOMERID                    AS licensing_customer_id,
   c.CUSTOMERNAME                  AS account_name,
-  c.SALESFORCEID                  AS sfdc_account_id,
+  a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   c.ONMAINTENANCE                 AS on_maintenance,
@@ -423,11 +533,12 @@ JOIN dev_telemetry.awssql_spslicensing_dbo.dailylicenseusage d
   ON d.CUSTOMERID = c.CUSTOMERID
 LEFT JOIN inbound_raw.salesforce.account a
   ON a.ID = c.SALESFORCEID
+  AND a._FIVETRAN_DELETED = FALSE
 WHERE c.ONMAINTENANCE = FALSE
   AND d.LASTVALIDATEDDATE >= DATEADD('day', -30, CURRENT_DATE)
   AND c._FIVETRAN_DELETED = FALSE
 GROUP BY
-  c.CUSTOMERID, c.CUSTOMERNAME, c.SALESFORCEID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C,
+  c.CUSTOMERID, c.CUSTOMERNAME, a.ID, a.TYPE, a.ACTIVE_PRODUCT_LINES_C,
   c.ONMAINTENANCE, a.CONTRACT_STATUS_C, a.CANCELLATION_DATE_C, a.NEXT_RENEWAL_DATE_C
 ORDER BY users_still_active DESC;
 
@@ -437,6 +548,7 @@ SELECT
   o.ID                            AS opportunity_id,
   a.NAME                          AS account_name,
   a.ID                            AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                          AS account_type,
   a.ACTIVE_PRODUCT_LINES_C        AS product_lines,
   o.CLOSE_DATE                    AS closed_lost_date,
@@ -496,6 +608,7 @@ s13_accounts AS (SELECT DISTINCT b.sfdc_account_id FROM consumer_beta.telemetry_
 SELECT
   a.NAME                                AS account_name,
   a.ID                                  AS sfdc_account_id,
+  'https://glsft2.lightning.force.com/lightning/r/Account/'||a.ID||'/view' AS account_sfdc_link,
   a.TYPE                                AS account_type,
   a.CHANNEL_TYPE__C                      AS channel,
   a.ACTIVE_PRODUCT_LINES_C              AS product_lines,

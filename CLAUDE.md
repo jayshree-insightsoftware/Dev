@@ -12,7 +12,7 @@ This is a warehouse-first analytics project. Raw data lives in a SQL warehouse. 
 
 **Warehouse:** Snowflake. Source databases are `dev_telemetry` (product telemetry and licensing) and `inbound_raw` (Salesforce CRM). MTM output tables land in `consumer_beta.telemetry_overview` with the prefix `MTM_`.
 
-**Dashboard:** `dashboard.html` at repo root -- static HTML that reads inline data from the last Snowflake run. Dated 2026-05-19.
+**Dashboard:** `dashboard.html` at repo root -- static HTML that reads inline data from the last Snowflake run. Data dated 2026-05-19. Features direct Salesforce record links (account ID filter button, S16 table, Account View panel), bidirectional cross-filtering for all dimension slicers, and dynamically populated dropdowns.
 
 **Stakeholders:** CSM Lead, CSMs, AEs, RevOps, CS Leadership, Product, Product Marketing, IT/Provisioning, Legal/Compliance.
 
@@ -128,6 +128,9 @@ Key join paths:
 - Licensing to SFDC: `awssql_spslicensing_dbo.customer.SALESFORCEID = salesforce.account.ID`
 - Licensing to telemetry: `CONCAT('platform:', customer.WEBID)` matches `product_telemetry.ACCOUNT_ID`
 - SFDC to telemetry: `CONCAT('platform:', account.PLATFORM_LEGACY_ID_C)` matches `product_telemetry.ACCOUNT_ID`
+- Telemetry to SFDC (bridge): telemetry `ACCOUNT_ID` → `CONCAT('platform:', customer.WEBID)` → `customer.SALESFORCEID` → `salesforce.account.ID`; used for scenarios that originate from telemetry tables (S3, S6, S7, S12, S13)
+
+All MTM_ output tables include `sfdc_account_id` (sourced from `salesforce.account.ID`) and `account_sfdc_link` (a pre-built Salesforce URL). Both are NULL when no matching SF record exists.
 
 Explicitly out of scope:
 
