@@ -21,9 +21,10 @@ Status markers: `[ ]` pending, `[~]` in progress, `[x]` complete
 ## Phase 3: Mart design
 
 [x] Create all 16 MTM tables in consumer_beta.telemetry_overview via sql/create_all_mtm_tables.sql
+[x] Standardize sfdc_account_id to source from salesforce.account.ID and add account_sfdc_link column to all tables (2026-05-27)
 [ ] Write validation queries for each MTM_ table in warehouse/marts/validations/
 [ ] Confirm MTM_ table row counts match dashboard.html snapshot -- re-run script if DAILYLICENSEUSAGE has been refreshed
-[ ] Add account_type and product_lines columns to tables that are missing them (S3, S6, S7, S8, S9, S12, S13 have no SFDC join)
+[ ] Add account_type and product_lines columns to SELECT lists for S3, S6, S7, S8, S9, S12, S13 -- S3/S6/S7 now have the SFDC bridge join in place so only the column additions remain; S8/S9/S12/S13 still lack the SFDC join
 
 ## Phase 4: App development
 
